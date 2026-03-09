@@ -1,0 +1,53 @@
+# Python cache and build
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.pyd
+build/
+dist/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+env/
+.cache/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Streamlit
+.streamlit/secrets.toml
+
+# MLflow
+.mlflow/
+mlflow.db
+mlruns/
+artifacts/
+
+# Model artifacts and generated runs
+models/*.joblib
+models/runs/
+reports/metrics/runs/
+reports/figures/runs/
+reports/metrics/val_predictions.csv
+reports/metrics/story_features.json
+
+# Generated datasets and outputs
+data/processed/
+data/raw/*.csv
+submissao_case*.csv
+scored_dataset*.csv
+high_risk_cases*.csv
+
+# OS/editor junk
+.DS_Store
+Thumbs.db
+*.tmp
+*.log
+*.mhtml

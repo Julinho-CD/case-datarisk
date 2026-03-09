@@ -1,0 +1,43 @@
+{
+  "best_run_id": "56e3d7b850c24eb78a05b2a232f30fd5",
+  "best_model": "Random Forest",
+  "best_variant": "nosmote",
+  "top_k": 5,
+  "stories": [
+    {
+      "feature": "QTDE_ATRASOS_ANT",
+      "type": "numeric",
+      "image": "reports/figures/story/story_QTDE_ATRASOS_ANT.png",
+      "eda_summary": "Na EDA, a taxa de inadimplência aumenta ao longo dos quantis de QTDE_ATRASOS_ANT. Ela vai de ~2.0% para ~32.7%, diferença de ~30.7%.",
+      "business_message": "QTDE_ATRASOS_ANT é um sinal útil: quando QTDE_ATRASOS_ANT muda, o risco tende a aumenta. Isso ajuda a priorizar cobranças com maior chance de inadimplência."
+    },
+    {
+      "feature": "VALOR_A_PAGAR",
+      "type": "numeric",
+      "image": "reports/figures/story/story_VALOR_A_PAGAR.png",
+      "eda_summary": "Na EDA, a taxa de inadimplência diminui ao longo dos quantis de VALOR_A_PAGAR. Ela vai de ~30.3% para ~3.2%, diferença de ~27.1%.",
+      "business_message": "VALOR_A_PAGAR é um sinal útil: quando VALOR_A_PAGAR muda, o risco tende a diminui. Isso ajuda a priorizar cobranças com maior chance de inadimplência."
+    },
+    {
+      "feature": "PRAZO_EMISSAO_VENCIMENTO",
+      "type": "numeric",
+      "image": "reports/figures/story/story_PRAZO_EMISSAO_VENCIMENTO.png",
+      "eda_summary": "Na EDA, a taxa de inadimplência aumenta ao longo dos quantis de PRAZO_EMISSAO_VENCIMENTO. Ela vai de ~2.8% para ~22.5%, diferença de ~19.6%.",
+      "business_message": "PRAZO_EMISSAO_VENCIMENTO é um sinal útil: quando PRAZO_EMISSAO_VENCIMENTO muda, o risco tende a aumenta. Isso ajuda a priorizar cobranças com maior chance de inadimplência."
+    },
+    {
+      "feature": "VALOR_RELATIVO_RENDA",
+      "type": "numeric",
+      "image": "reports/figures/story/story_VALOR_RELATIVO_RENDA.png",
+      "eda_summary": "Na EDA, a taxa de inadimplência diminui ao longo dos quantis de VALOR_RELATIVO_RENDA. Ela vai de ~22.9% para ~9.0%, diferença de ~13.9%.",
+      "business_message": "VALOR_RELATIVO_RENDA é um sinal útil: quando VALOR_RELATIVO_RENDA muda, o risco tende a diminui. Isso ajuda a priorizar cobranças com maior chance de inadimplência."
+    },
+    {
+      "feature": "TICKET_MEDIO_ANT",
+      "type": "numeric",
+      "image": "reports/figures/story/story_TICKET_MEDIO_ANT.png",
+      "eda_summary": "Na EDA, a taxa de inadimplência diminui ao longo dos quantis de TICKET_MEDIO_ANT. Ela vai de ~18.5% para ~3.7%, diferença de ~14.9%.",
+      "business_message": "TICKET_MEDIO_ANT é um sinal útil: quando TICKET_MEDIO_ANT muda, o risco tende a diminui. Isso ajuda a priorizar cobranças com maior chance de inadimplência."
+    }
+  ]
+}
