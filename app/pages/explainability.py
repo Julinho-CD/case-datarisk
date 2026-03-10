@@ -4,28 +4,77 @@ import streamlit as st
 
 from app.analysis import build_categorical_story, build_numeric_story, select_story_features
 from app.charts import PALETTE, story_chart_categorical, story_chart_numeric
-from app.loaders import (
-    current_data_settings,
-    get_feature_importance_image_path,
-    get_shap_summary_image_path,
-    load_feature_data,
-    load_feature_importance,
-    load_top_features,
-)
+from app.loaders import current_data_settings, load_feature_data, load_run_feature_importance, load_top_features
 
 
-def render_page(selected_row: dict | None, selected_run_id: str | None, tr):
+def _model_option_label(row: pd.Series, tr) -> str:
+    smote_value = pd.to_numeric(row.get("use_smote", 0), errors="coerce")
+    smote_enabled = bool(int(smote_value)) if pd.notna(smote_value) else False
+    smote_label = tr("with SMOTE", "com SMOTE") if smote_enabled else tr("without SMOTE", "sem SMOTE")
+    model_name = str(row.get("model_name", "Model"))
+    pr_auc = float(row.get("pr_auc", 0.0) or 0.0)
+    return f"{model_name} | {smote_label} | PR-AUC {pr_auc:.4f}"
+
+
+def _select_model_row(comparison: pd.DataFrame, selected_row: dict | None, tr) -> dict:
+    run_ids = comparison["run_id"].astype(str).tolist()
+    label_map = {
+        str(row["run_id"]): _model_option_label(row, tr)
+        for _, row in comparison.iterrows()
+    }
+
+    default_run_id = None
+    if selected_row is not None:
+        default_run_id = str(selected_row.get("run_id", "")).strip() or None
+    if not default_run_id and run_ids:
+        default_run_id = run_ids[0]
+
+    current_run_id = st.session_state.get("analysis_run_id", default_run_id)
+    if current_run_id not in run_ids:
+        current_run_id = default_run_id
+        st.session_state["analysis_run_id"] = default_run_id
+
+    selected_run_id = st.selectbox(
+        tr("Model for analysis", "Modelo para análise"),
+        options=run_ids,
+        index=run_ids.index(current_run_id) if current_run_id in run_ids else 0,
+        format_func=lambda run_id: label_map.get(run_id, run_id),
+        key="analysis_run_id",
+    )
+
+    return comparison.loc[comparison["run_id"].astype(str) == str(selected_run_id)].iloc[0].to_dict()
+
+
+def render_page(comparison: pd.DataFrame | None, selected_row: dict | None, tr):
     st.subheader(tr("Explainability", "Explicabilidade"))
 
-    imp_df = load_feature_importance()
-    if imp_df is None or imp_df.empty:
+    if comparison is None or len(comparison) == 0:
         st.info(
             tr(
-                "Feature-importance artifacts were not found. Export `artifacts/feature_importance.csv` and the related figures.",
-                "Os artefatos de importância de features não foram encontrados. Exporte `artifacts/feature_importance.csv` e as figuras relacionadas.",
+                "Feature-importance artifacts were not found. Run `python -m src.train` to regenerate them.",
+                "Os artefatos de importância de features não foram encontrados. Rode `python -m src.train` para gerá-los novamente.",
             )
         )
         return
+
+    active_row = _select_model_row(comparison, selected_row, tr)
+    active_run_id = str(active_row.get("run_id", "")).strip()
+    imp_df = load_run_feature_importance(active_run_id)
+    if imp_df is None or imp_df.empty:
+        st.info(
+            tr(
+                "Feature-importance artifacts were not found for the selected run.",
+                "Os artefatos de importância de features não foram encontrados para a run selecionada.",
+            )
+        )
+        return
+
+    st.caption(
+        tr(
+            f"Run {active_run_id or '-'} loaded for the explainability view.",
+            f"Run {active_run_id or '-'} carregada para a visão de explicabilidade.",
+        )
+    )
 
     st.altair_chart(
         alt.Chart(imp_df.head(20))
@@ -39,30 +88,6 @@ def render_page(selected_row: dict | None, selected_run_id: str | None, tr):
         .properties(height=460),
         use_container_width=True,
     )
-
-    feature_importance_image = get_feature_importance_image_path()
-    shap_summary_image = get_shap_summary_image_path()
-    if feature_importance_image or shap_summary_image:
-        st.markdown(f"**{tr('Saved explainability figures', 'Figuras salvas de explicabilidade')}**")
-        col1, col2 = st.columns(2)
-        with col1:
-            if feature_importance_image:
-                st.image(
-                    str(feature_importance_image),
-                    caption=tr("Feature-importance figure", "Figura de importância de features"),
-                    use_container_width=True,
-                )
-            else:
-                st.info(tr("Feature-importance image not available.", "A imagem de importância de features não está disponível."))
-        with col2:
-            if shap_summary_image:
-                st.image(
-                    str(shap_summary_image),
-                    caption=tr("Explainability-summary figure", "Figura-resumo de explicabilidade"),
-                    use_container_width=True,
-                )
-            else:
-                st.info(tr("Explainability-summary image not available.", "A imagem-resumo de explicabilidade não está disponível."))
 
     with st.expander(tr("Interpretation notes", "Notas de interpretação")):
         st.markdown(
@@ -81,14 +106,14 @@ def render_page(selected_row: dict | None, selected_run_id: str | None, tr):
     if train_fe is None:
         st.info(
             tr(
-                "Feature stories depend on the processed training data. The saved explainability artifacts are still available above.",
-                "As histórias das features dependem dos dados processados de treino. Os artefatos salvos de explicabilidade continuam disponíveis acima.",
+                "Feature stories depend on the processed training data.",
+                "As histórias das features dependem dos dados processados de treino.",
             )
         )
         return
 
     st.markdown(f"**{tr('Top feature stories', 'Histórias das principais features')}**")
-    top_feats = load_top_features(selected_row, selected_run_id)
+    top_feats = load_top_features(active_row, active_run_id)
     story_n = st.radio(tr("How many features", "Quantas features"), [3, 5], index=1, horizontal=True, key="exp_story_n")
     stories = select_story_features(top_feats, train_fe, top_n=story_n)
 

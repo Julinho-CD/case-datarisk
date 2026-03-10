@@ -3,31 +3,53 @@ import streamlit as st
 
 from app.analysis import threshold_row
 from app.charts import chart_f1, chart_pr, chart_roc
-from app.loaders import current_data_settings, load_processed
+from app.loaders import load_run_pr_curve, load_run_roc_curve, load_run_threshold_curve
+
+
+def _model_option_label(row: pd.Series, tr) -> str:
+    smote_value = pd.to_numeric(row.get("use_smote", 0), errors="coerce")
+    smote_enabled = bool(int(smote_value)) if pd.notna(smote_value) else False
+    smote_label = tr("with SMOTE", "com SMOTE") if smote_enabled else tr("without SMOTE", "sem SMOTE")
+    model_name = str(row.get("model_name", "Model"))
+    pr_auc = float(row.get("pr_auc", 0.0) or 0.0)
+    return f"{model_name} | {smote_label} | PR-AUC {pr_auc:.4f}"
+
+
+def _select_model_row(comparison: pd.DataFrame, selected_row: dict | None, tr) -> dict:
+    run_ids = comparison["run_id"].astype(str).tolist()
+    label_map = {
+        str(row["run_id"]): _model_option_label(row, tr)
+        for _, row in comparison.iterrows()
+    }
+
+    default_run_id = None
+    if selected_row is not None:
+        default_run_id = str(selected_row.get("run_id", "")).strip() or None
+    if not default_run_id and run_ids:
+        default_run_id = run_ids[0]
+
+    current_run_id = st.session_state.get("analysis_run_id", default_run_id)
+    if current_run_id not in run_ids:
+        current_run_id = default_run_id
+        st.session_state["analysis_run_id"] = default_run_id
+
+    selected_run_id = st.selectbox(
+        tr("Model for analysis", "Modelo para análise"),
+        options=run_ids,
+        index=run_ids.index(current_run_id) if current_run_id in run_ids else 0,
+        format_func=lambda run_id: label_map.get(run_id, run_id),
+        key="analysis_run_id",
+    )
+
+    return comparison.loc[comparison["run_id"].astype(str) == str(selected_run_id)].iloc[0].to_dict()
 
 
 def render_page(
     comparison: pd.DataFrame | None,
     selected_row: dict | None,
-    threshold_curve: pd.DataFrame | None,
-    roc_curve_df: pd.DataFrame | None,
-    pr_curve_df: pd.DataFrame | None,
     tr,
 ):
     st.subheader(tr("Modeling and threshold", "Modelagem e threshold"))
-
-    data_source, refresh = current_data_settings()
-    train_df, test_df = load_processed(data_source, refresh)
-    if train_df is not None and test_df is not None:
-        total_rows = len(train_df) + len(test_df)
-        train_share = (len(train_df) / total_rows * 100.0) if total_rows else 0.0
-        test_share = (len(test_df) / total_rows * 100.0) if total_rows else 0.0
-
-        d1, d2, d3, d4 = st.columns(4)
-        d1.metric(tr("Rows used for train", "Linhas usadas para treino"), f"{len(train_df):,}".replace(",", "."))
-        d2.metric(tr("Rows used for test", "Linhas usadas para teste"), f"{len(test_df):,}".replace(",", "."))
-        d3.metric(tr("Train share", "% treino"), f"{train_share:.1f}%")
-        d4.metric(tr("Test share", "% teste"), f"{test_share:.1f}%")
 
     if comparison is None or len(comparison) == 0:
         st.warning(
@@ -37,6 +59,28 @@ def render_page(
             )
         )
         return
+
+    active_row = _select_model_row(comparison, selected_row, tr)
+    active_run_id = str(active_row.get("run_id", "")).strip()
+
+    n_train = pd.to_numeric(active_row.get("n_train"), errors="coerce")
+    n_test = pd.to_numeric(active_row.get("n_test"), errors="coerce")
+    train_share = pd.to_numeric(active_row.get("train_share"), errors="coerce")
+    test_share = pd.to_numeric(active_row.get("test_share"), errors="coerce")
+    if pd.notna(n_train) and pd.notna(n_test):
+        train_share_pct = float(train_share) * 100 if pd.notna(train_share) else 0.0
+        test_share_pct = float(test_share) * 100 if pd.notna(test_share) else 0.0
+        d1, d2, d3, d4 = st.columns(4)
+        d1.metric(tr("Rows used for train", "Linhas usadas para treino"), f"{int(n_train):,}".replace(",", "."))
+        d2.metric(tr("Rows used for test", "Linhas usadas para teste"), f"{int(n_test):,}".replace(",", "."))
+        d3.metric(tr("Train share", "% treino"), f"{train_share_pct:.1f}%")
+        d4.metric(tr("Test share", "% teste"), f"{test_share_pct:.1f}%")
+        st.caption(
+            tr(
+                "Evaluation split: stratified 80/20 holdout on the labeled development base.",
+                "Split de avaliação: holdout estratificado 80/20 na base rotulada de desenvolvimento.",
+            )
+        )
 
     view = comparison.copy()
     view.insert(0, "rank", range(1, len(view) + 1))
@@ -67,33 +111,33 @@ def render_page(
         }
     )
     st.dataframe(view, width="stretch", height=260)
-    st.caption(
-        tr(
-            "The benchmark table shows all tested models. The charts below use the exported final artifact.",
-            "A tabela de benchmark mostra todos os modelos testados. Os gráficos abaixo usam o artefato final exportado.",
-        )
-    )
-
-    if not selected_row:
-        return
 
     st.markdown(f"**{tr('Selected model summary', 'Resumo do modelo selecionado')}**")
     m1, m2, m3, m4 = st.columns(4)
-    m1.metric("PR-AUC", f"{float(selected_row.get('pr_auc', 0.0)):.4f}")
-    m2.metric("ROC-AUC", f"{float(selected_row.get('roc_auc', 0.0)):.4f}")
-    m3.metric("F1@0.5", f"{float(selected_row.get('f1_at_05', 0.0)):.4f}")
-    m4.metric("F1@best", f"{float(selected_row.get('f1_best_threshold', 0.0)):.4f}")
+    m1.metric("PR-AUC", f"{float(active_row.get('pr_auc', 0.0)):.4f}")
+    m2.metric("ROC-AUC", f"{float(active_row.get('roc_auc', 0.0)):.4f}")
+    m3.metric("F1@0.5", f"{float(active_row.get('f1_at_05', 0.0)):.4f}")
+    m4.metric("F1@best", f"{float(active_row.get('f1_best_threshold', 0.0)):.4f}")
+    st.caption(
+        tr(
+            f"Run {active_run_id or '-'} loaded for the interactive diagnostics below.",
+            f"Run {active_run_id or '-'} carregada para os diagnósticos interativos abaixo.",
+        )
+    )
 
+    threshold_curve = load_run_threshold_curve(active_run_id)
+    roc_curve_df = load_run_roc_curve(active_run_id)
+    pr_curve_df = load_run_pr_curve(active_run_id)
     if threshold_curve is None or threshold_curve.empty:
         st.info(
             tr(
-                "Threshold diagnostics were not exported. Add `artifacts/threshold_curve.csv` to enable the interactive modeling view.",
-                "Os diagnósticos de threshold não foram exportados. Adicione `artifacts/threshold_curve.csv` para habilitar a visão interativa de modelagem.",
+                "Threshold diagnostics were not exported for this run.",
+                "Os diagnósticos de threshold não foram exportados para esta run.",
             )
         )
         return
 
-    default_thr = float(selected_row.get("best_threshold", 0.5))
+    default_thr = float(active_row.get("best_threshold", 0.5))
     thr = st.slider(
         tr("Interactive threshold", "Threshold interativo"),
         min_value=0.05,

@@ -11,9 +11,6 @@ if str(ROOT) not in sys.path:
 from app.loaders import (
     load_best_run,
     load_model_comparison,
-    load_pr_curve,
-    load_roc_curve,
-    load_threshold_curve,
     load_val_predictions_best,
 )
 from app.pages import eda, executive, explainability, modeling, prediction
@@ -132,21 +129,12 @@ def main():
     render_language_switcher()
 
     st.title(tr("Datarisk Delinquency App", "App Datarisk de Inadimplência"))
-    st.caption(
-        tr(
-            "Original challenge solution + portfolio extension: executive summary, EDA, modeling, explainability, and prioritization.",
-            "Solução original do case + extensão de portfólio: resumo executivo, análise exploratória, modelagem, explicabilidade e priorização.",
-        )
-    )
 
     comparison = None
     best_run = {}
     selected_run_id = None
     selected_row = None
     val_pred: pd.DataFrame | None = None
-    threshold_curve = None
-    roc_curve_df = None
-    pr_curve_df = None
 
     try:
         comparison = load_model_comparison()
@@ -167,27 +155,6 @@ def main():
     except Exception as exc:
         debug_log(f"load_val_predictions_best failed: {exc!r}")
         st.error("Failed to load validation predictions artifact.")
-        st.exception(exc)
-
-    try:
-        threshold_curve = load_threshold_curve()
-    except Exception as exc:
-        debug_log(f"load_threshold_curve failed: {exc!r}")
-        st.error("Failed to load threshold curve artifact.")
-        st.exception(exc)
-
-    try:
-        roc_curve_df = load_roc_curve()
-    except Exception as exc:
-        debug_log(f"load_roc_curve failed: {exc!r}")
-        st.error("Failed to load ROC curve artifact.")
-        st.exception(exc)
-
-    try:
-        pr_curve_df = load_pr_curve()
-    except Exception as exc:
-        debug_log(f"load_pr_curve failed: {exc!r}")
-        st.error("Failed to load PR curve artifact.")
         st.exception(exc)
 
     if comparison is None or len(comparison) == 0:
@@ -212,23 +179,13 @@ def main():
 
     if selected_row is not None:
         selected_run_id = str(selected_row.get("run_id", best_run.get("run_id", ""))).strip() or None
-        model_name = str(selected_row.get("model_name", best_run.get("model_name", "Model")))
-        pr_auc = float(selected_row.get("pr_auc", best_run.get("pr_auc", 0.0)))
-        st.caption(
-            tr(
-                f"Official portfolio artifact: {model_name} | Run {selected_run_id or '-'} | PR-AUC {pr_auc:.4f}",
-                f"Artefato oficial do portfólio: {model_name} | Run {selected_run_id or '-'} | PR-AUC {pr_auc:.4f}",
-            )
-        )
+        st.session_state.setdefault("analysis_run_id", selected_run_id)
 
     debug_log(
         "artifacts: "
         f"comparison_loaded={comparison is not None and len(comparison) > 0}, "
         f"best_run_loaded={bool(best_run)}, "
-        f"val_pred_loaded={val_pred is not None}, "
-        f"threshold_curve_loaded={threshold_curve is not None}, "
-        f"roc_curve_loaded={roc_curve_df is not None}, "
-        f"pr_curve_loaded={pr_curve_df is not None}"
+        f"val_pred_loaded={val_pred is not None}"
     )
 
     safe_render("executive.render_top_summary", executive.render_top_summary, selected_row, val_pred, tr)
@@ -261,9 +218,9 @@ def main():
         "modeling": (
             "modeling.render_page",
             modeling.render_page,
-            (comparison, selected_row, threshold_curve, roc_curve_df, pr_curve_df, tr),
+            (comparison, selected_row, tr),
         ),
-        "explainability": ("explainability.render_page", explainability.render_page, (selected_row, selected_run_id, tr)),
+        "explainability": ("explainability.render_page", explainability.render_page, (comparison, selected_row, tr)),
         "prediction": ("prediction.render_page", prediction.render_page, (selected_row, tr)),
     }
 
