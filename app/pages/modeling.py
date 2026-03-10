@@ -78,10 +78,10 @@ def render_page(comparison: pd.DataFrame | None, selected_row: dict | None, val_
 
     g1, g2 = st.columns(2)
     with g1:
-        st.altair_chart(chart_pr(thr_df, marker), width="stretch")
+        st.altair_chart(chart_pr(thr_df, marker), use_container_width=True)
     with g2:
-        st.altair_chart(chart_roc(thr_df, marker), width="stretch")
-    st.altair_chart(chart_f1(thr_df, marker), width="stretch")
+        st.altair_chart(chart_roc(thr_df, marker), use_container_width=True)
+    st.altair_chart(chart_f1(thr_df, marker), use_container_width=True)
 
     mm = marker.iloc[0]
     k1, k2, k3, k4 = st.columns(4)

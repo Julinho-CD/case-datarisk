@@ -51,7 +51,7 @@ def render_page(selected_row: dict | None, selected_run_id: str | None, tr):
             color=alt.Color("class:N", legend=None, scale=alt.Scale(range=[PALETTE["blue"], PALETTE["orange"]])),
         )
         .properties(height=220),
-        width="stretch",
+        use_container_width=True,
     )
 
     st.markdown(f"**{tr('Delinquency Over Time', 'Inadimplencia ao longo do tempo')}**")
@@ -66,7 +66,7 @@ def render_page(selected_row: dict | None, selected_run_id: str | None, tr):
             y=alt.Y(f"{TARGET_COL}:Q", scale=alt.Scale(domain=[0, 1]), title=tr("Delinquency Rate", "Taxa de inadimplencia")),
         )
         .properties(height=260),
-        width="stretch",
+        use_container_width=True,
     )
 
     st.markdown(f"**{tr('Correlation View', 'Visao de correlacao')}**")
@@ -79,7 +79,7 @@ def render_page(selected_row: dict | None, selected_run_id: str | None, tr):
     )
     if len(corr_features) >= 2:
         corr_chart, _ = pearson_heatmap(train_fe, corr_features)
-        st.altair_chart(corr_chart, width="stretch")
+        st.altair_chart(corr_chart, use_container_width=True)
     else:
         st.info(tr("Select At Least 2 Features.", "Selecione ao menos 2 features."))
 
@@ -95,7 +95,7 @@ def render_page(selected_row: dict | None, selected_run_id: str | None, tr):
             _, agg = build_numeric_story(train_fe, feat)
             st.caption(tr("Risk Trend By Bucket For This Feature.", "Tendencia de risco por faixa desta feature."))
             if not agg.empty:
-                st.altair_chart(story_chart_numeric(agg, feat), width="stretch")
+                st.altair_chart(story_chart_numeric(agg, feat), use_container_width=True)
         else:
             _, agg = build_categorical_story(train_fe, feat)
             st.caption(
@@ -105,4 +105,4 @@ def render_page(selected_row: dict | None, selected_run_id: str | None, tr):
                 )
             )
             if not agg.empty:
-                st.altair_chart(story_chart_categorical(agg, feat), width="stretch")
+                st.altair_chart(story_chart_categorical(agg, feat), use_container_width=True)

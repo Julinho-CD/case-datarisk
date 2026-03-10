@@ -8,7 +8,7 @@ def render_top_summary(selected_row: dict | None, val_pred: pd.DataFrame | None,
     st.markdown(f"### {tr('Executive Summary', 'Resumo Executivo')}")
 
     if not selected_row:
-        st.warning(tr("No Benchmark Model Is Available.", "Nenhum Modelo De Benchmark Está Disponível."))
+        st.warning(tr("No Benchmark Model Is Available.", "Nenhum modelo de benchmark está disponível."))
         return
 
     model_name = str(selected_row.get("model_name", "-"))
@@ -32,6 +32,13 @@ def render_top_summary(selected_row: dict | None, val_pred: pd.DataFrame | None,
                 f"No threshold {thr:.2f}: precisão={mm['precision']:.3f}, recall={mm['recall']:.3f}, taxa-positiva={mm['positive_rate']:.3f}.",
             )
         )
+    else:
+        st.info(
+            tr(
+                "Validation predictions are unavailable for this run. Summary metrics remain visible, but threshold diagnostics are hidden.",
+                "As predições de validação não estão disponíveis para esta run. As métricas-resumo continuam visíveis, mas os diagnósticos de threshold foram ocultados.",
+            )
+        )
 
     with st.expander(tr("How This Supports Business Decisions", "Como Isso Apoia A Decisão De Negócio")):
         st.markdown(
@@ -50,7 +57,7 @@ def render_page(selected_row: dict | None, comparison: pd.DataFrame | None, val_
     st.subheader(tr("Executive View", "Visão Executiva"))
 
     if selected_row is None:
-        st.info(tr("Run Training First: `python -m src.train`.", "Rode O Treino Primeiro: `python -m src.train`."))
+        st.info(tr("Run Training First: `python -m src.train`.", "Rode o treino primeiro: `python -m src.train`."))
         return
 
     render_top_summary(selected_row, val_pred, tr)
@@ -88,8 +95,15 @@ def render_page(selected_row: dict | None, comparison: pd.DataFrame | None, val_
             tr(
                 f"Recommended policy at threshold {thr:.2f}: action queue covers {mm['positive_rate']*100:.1f}% of cases, "
                 f"with precision {mm['precision']:.3f} and recall {mm['recall']:.3f}.",
-                f"Política recomendada no threshold {thr:.2f}: fila de ação cobre {mm['positive_rate']*100:.1f}% dos casos, "
+                f"Política recomendada no threshold {thr:.2f}: a fila de ação cobre {mm['positive_rate']*100:.1f}% dos casos, "
                 f"com precisão {mm['precision']:.3f} e recall {mm['recall']:.3f}.",
+            )
+        )
+    elif selected_row:
+        st.info(
+            tr(
+                "Validation predictions are unavailable for this run, so the threshold policy preview cannot be rendered.",
+                "As predições de validação não estão disponíveis para esta run, então a prévia da política de threshold não pode ser exibida.",
             )
         )
 
@@ -113,8 +127,8 @@ def render_page(selected_row: dict | None, comparison: pd.DataFrame | None, val_
                 "- False Negative (high-risk missed): delayed action and potential loss.\n"
                 "- False Positive (low-risk flagged): unnecessary operational effort.\n"
                 "- Threshold should balance expected loss vs team workload.",
-                "- Falso Negativo (alto risco não sinalizado): atraso na ação e potencial perda.\n"
-                "- Falso Positivo (baixo risco sinalizado): esforço operacional desnecessário.\n"
+                "- Falso negativo (alto risco não sinalizado): atraso na ação e potencial perda.\n"
+                "- Falso positivo (baixo risco sinalizado): esforço operacional desnecessário.\n"
                 "- O threshold deve equilibrar perda esperada vs capacidade do time.",
             )
         )

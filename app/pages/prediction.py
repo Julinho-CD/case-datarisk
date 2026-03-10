@@ -136,7 +136,7 @@ def render_page(selected_run_id: str | None, selected_row: dict | None, tr):
             tooltip=["label:N", "count:Q"],
         )
         .properties(height=420),
-        width="stretch",
+        use_container_width=True,
     )
 
     st.markdown(f"**{tr('Prioritization Table', 'Tabela de priorizacao')}**")

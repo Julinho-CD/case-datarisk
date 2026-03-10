@@ -42,7 +42,7 @@ def render_page(selected_row: dict | None, selected_run_id: str | None, tr):
             color=alt.value(PALETTE["blue"]),
         )
         .properties(height=460),
-        width="stretch",
+        use_container_width=True,
     )
 
     with st.expander(tr("Interpretation Notes", "Notas de interpretacao")):
@@ -68,9 +68,9 @@ def render_page(selected_row: dict | None, selected_run_id: str | None, tr):
             _, agg = build_numeric_story(train_fe, feat)
             st.caption(tr("Observed Behavior In Numeric Buckets.", "Comportamento observado em faixas numericas."))
             if not agg.empty:
-                st.altair_chart(story_chart_numeric(agg, feat), width="stretch")
+                st.altair_chart(story_chart_numeric(agg, feat), use_container_width=True)
         else:
             _, agg = build_categorical_story(train_fe, feat)
             st.caption(tr("Observed Behavior Across Categories.", "Comportamento observado entre categorias."))
             if not agg.empty:
-                st.altair_chart(story_chart_categorical(agg, feat), width="stretch")
+                st.altair_chart(story_chart_categorical(agg, feat), use_container_width=True)
