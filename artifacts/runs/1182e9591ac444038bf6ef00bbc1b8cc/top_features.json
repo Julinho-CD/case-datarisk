@@ -1,0 +1,82 @@
+[
+  {
+    "feature": "DDD_(9",
+    "importance": 3.8126577093699723
+  },
+  {
+    "feature": "CEP_2_DIG_51",
+    "importance": 2.912385157054869
+  },
+  {
+    "feature": "DDD_42",
+    "importance": 2.8848752910906548
+  },
+  {
+    "feature": "CEP_2_DIG_97",
+    "importance": 2.8600429935053486
+  },
+  {
+    "feature": "DDD_15",
+    "importance": 2.7640900223429847
+  },
+  {
+    "feature": "DDD_07",
+    "importance": 2.7154073594758596
+  },
+  {
+    "feature": "DDD_54",
+    "importance": 2.697470954615171
+  },
+  {
+    "feature": "DDD_95",
+    "importance": 2.5138330582606585
+  },
+  {
+    "feature": "CEP_2_DIG_39",
+    "importance": 2.476442088910597
+  },
+  {
+    "feature": "DDD_87",
+    "importance": 2.460929148366818
+  },
+  {
+    "feature": "CEP_2_DIG_69",
+    "importance": 2.381203688179513
+  },
+  {
+    "feature": "DDD_92",
+    "importance": 2.2891862872053754
+  },
+  {
+    "feature": "DDD_55",
+    "importance": 2.2305632832410707
+  },
+  {
+    "feature": "DDD_53",
+    "importance": 2.1860780342298165
+  },
+  {
+    "feature": "DDD_63",
+    "importance": 2.1260486426135525
+  },
+  {
+    "feature": "CEP_2_DIG_17",
+    "importance": 2.0915217501059358
+  },
+  {
+    "feature": "CEP_2_DIG_86",
+    "importance": 2.0221831785050184
+  },
+  {
+    "feature": "DDD_61",
+    "importance": 1.9803766791481152
+  },
+  {
+    "feature": "DDD_45",
+    "importance": 1.9639157510705887
+  },
+  {
+    "feature": "DDD_00",
+    "importance": 1.9262364682097675
+  }
+]

@@ -179,7 +179,10 @@ def main():
 
     if selected_row is not None:
         selected_run_id = str(selected_row.get("run_id", best_run.get("run_id", ""))).strip() or None
-        st.session_state.setdefault("analysis_run_id", selected_run_id)
+        valid_run_ids = comparison["run_id"].astype(str).tolist() if comparison is not None and "run_id" in comparison.columns else []
+        current_analysis_run = str(st.session_state.get("analysis_run_id", "")).strip()
+        if not current_analysis_run or (valid_run_ids and current_analysis_run not in valid_run_ids):
+            st.session_state["analysis_run_id"] = selected_run_id
 
     debug_log(
         "artifacts: "

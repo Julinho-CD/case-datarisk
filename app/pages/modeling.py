@@ -40,8 +40,32 @@ def _select_model_row(comparison: pd.DataFrame, selected_row: dict | None, tr) -
         format_func=lambda run_id: label_map.get(run_id, run_id),
         key="analysis_run_id",
     )
+    st.session_state["analysis_run_id"] = selected_run_id
 
     return comparison.loc[comparison["run_id"].astype(str) == str(selected_run_id)].iloc[0].to_dict()
+
+
+def _split_metrics_source(active_row: dict, comparison: pd.DataFrame) -> tuple[dict, bool]:
+    candidates = [active_row]
+    if not comparison.empty:
+        candidates.append(comparison.iloc[0].to_dict())
+    candidates.append(loaders.load_best_run())
+
+    for candidate in candidates:
+        if not candidate:
+            continue
+        n_train = pd.to_numeric(candidate.get("n_train"), errors="coerce")
+        n_test = pd.to_numeric(candidate.get("n_test"), errors="coerce")
+        train_share = pd.to_numeric(candidate.get("train_share"), errors="coerce")
+        test_share = pd.to_numeric(candidate.get("test_share"), errors="coerce")
+        if pd.notna(n_train) and pd.notna(n_test):
+            return {
+                "n_train": int(n_train),
+                "n_test": int(n_test),
+                "train_share": float(train_share) if pd.notna(train_share) else None,
+                "test_share": float(test_share) if pd.notna(test_share) else None,
+            }, candidate is active_row
+    return {}, False
 
 
 def render_page(
@@ -63,16 +87,15 @@ def render_page(
     active_row = _select_model_row(comparison, selected_row, tr)
     active_run_id = str(active_row.get("run_id", "")).strip()
 
-    n_train = pd.to_numeric(active_row.get("n_train"), errors="coerce")
-    n_test = pd.to_numeric(active_row.get("n_test"), errors="coerce")
-    train_share = pd.to_numeric(active_row.get("train_share"), errors="coerce")
-    test_share = pd.to_numeric(active_row.get("test_share"), errors="coerce")
-    if pd.notna(n_train) and pd.notna(n_test):
-        train_share_pct = float(train_share) * 100 if pd.notna(train_share) else 0.0
-        test_share_pct = float(test_share) * 100 if pd.notna(test_share) else 0.0
+    split_metrics, split_from_active = _split_metrics_source(active_row, comparison)
+    if split_metrics:
+        train_share = split_metrics.get("train_share")
+        test_share = split_metrics.get("test_share")
+        train_share_pct = float(train_share) * 100 if train_share is not None else 0.0
+        test_share_pct = float(test_share) * 100 if test_share is not None else 0.0
         d1, d2, d3, d4 = st.columns(4)
-        d1.metric(tr("Rows used for train", "Linhas usadas para treino"), f"{int(n_train):,}".replace(",", "."))
-        d2.metric(tr("Rows used for test", "Linhas usadas para teste"), f"{int(n_test):,}".replace(",", "."))
+        d1.metric(tr("Rows used for train", "Linhas usadas para treino"), f"{int(split_metrics['n_train']):,}".replace(",", "."))
+        d2.metric(tr("Rows used for test", "Linhas usadas para teste"), f"{int(split_metrics['n_test']):,}".replace(",", "."))
         d3.metric(tr("Train share", "% treino"), f"{train_share_pct:.1f}%")
         d4.metric(tr("Test share", "% teste"), f"{test_share_pct:.1f}%")
         st.caption(
@@ -81,6 +104,13 @@ def render_page(
                 "Split de avaliação: holdout estratificado 80/20 na base rotulada de desenvolvimento.",
             )
         )
+        if not split_from_active:
+            st.caption(
+                tr(
+                    "The split cards use the exported benchmark metadata because this selected row does not include explicit split fields.",
+                    "Os cards de split usam os metadados exportados do benchmark porque esta linha selecionada não inclui explicitamente os campos do split.",
+                )
+            )
 
     view = comparison.copy()
     view.insert(0, "rank", range(1, len(view) + 1))

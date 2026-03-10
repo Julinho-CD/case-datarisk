@@ -41,6 +41,7 @@ def _select_model_row(comparison: pd.DataFrame, selected_row: dict | None, tr) -
         format_func=lambda run_id: label_map.get(run_id, run_id),
         key="analysis_run_id",
     )
+    st.session_state["analysis_run_id"] = selected_run_id
 
     return comparison.loc[comparison["run_id"].astype(str) == str(selected_run_id)].iloc[0].to_dict()
 

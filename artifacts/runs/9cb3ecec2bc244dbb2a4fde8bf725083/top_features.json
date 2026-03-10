@@ -1,0 +1,82 @@
+[
+  {
+    "feature": "TEMPO_CADASTRO",
+    "importance": 2487.0
+  },
+  {
+    "feature": "VALOR_A_PAGAR",
+    "importance": 2234.0
+  },
+  {
+    "feature": "PRAZO_EMISSAO_VENCIMENTO",
+    "importance": 2181.0
+  },
+  {
+    "feature": "TICKET_MEDIO_ANT",
+    "importance": 1948.0
+  },
+  {
+    "feature": "QTDE_ATRASOS_ANT",
+    "importance": 1468.0
+  },
+  {
+    "feature": "NO_FUNCIONARIOS",
+    "importance": 1389.0
+  },
+  {
+    "feature": "RENDA_MES_ANTERIOR",
+    "importance": 1388.0
+  },
+  {
+    "feature": "VALOR_RELATIVO_RENDA",
+    "importance": 1236.0
+  },
+  {
+    "feature": "MES",
+    "importance": 1150.0
+  },
+  {
+    "feature": "TAXA",
+    "importance": 519.0
+  },
+  {
+    "feature": "DOMINIO_EMAIL_HOTMAIL",
+    "importance": 136.0
+  },
+  {
+    "feature": "PORTE_MEDIO",
+    "importance": 95.0
+  },
+  {
+    "feature": "SEGMENTO_INDUSTRIAL_Ind\u00fastria",
+    "importance": 92.0
+  },
+  {
+    "feature": "DDD_11",
+    "importance": 91.0
+  },
+  {
+    "feature": "DOMINIO_EMAIL_GMAIL",
+    "importance": 84.0
+  },
+  {
+    "feature": "SEGMENTO_INDUSTRIAL_Servi\u00e7os",
+    "importance": 84.0
+  },
+  {
+    "feature": "CEP_2_DIG_13",
+    "importance": 76.0
+  },
+  {
+    "feature": "PORTE_PEQUENO",
+    "importance": 70.0
+  },
+  {
+    "feature": "DOMINIO_EMAIL_YAHOO",
+    "importance": 66.0
+  },
+  {
+    "feature": "CEP_2_DIG_68",
+    "importance": 64.0
+  }
+]

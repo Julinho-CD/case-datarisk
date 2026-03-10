@@ -1,0 +1,82 @@
+[
+  {
+    "feature": "QTDE_ATRASOS_ANT",
+    "importance": 0.18343714570386485
+  },
+  {
+    "feature": "VALOR_A_PAGAR",
+    "importance": 0.12190480621418949
+  },
+  {
+    "feature": "PRAZO_EMISSAO_VENCIMENTO",
+    "importance": 0.10181330158620325
+  },
+  {
+    "feature": "VALOR_RELATIVO_RENDA",
+    "importance": 0.0729874507029751
+  },
+  {
+    "feature": "TICKET_MEDIO_ANT",
+    "importance": 0.07162993105412033
+  },
+  {
+    "feature": "TEMPO_CADASTRO",
+    "importance": 0.06495596984656081
+  },
+  {
+    "feature": "RENDA_MES_ANTERIOR",
+    "importance": 0.04701590485896281
+  },
+  {
+    "feature": "NO_FUNCIONARIOS",
+    "importance": 0.03998751196534146
+  },
+  {
+    "feature": "MES",
+    "importance": 0.030113896212846995
+  },
+  {
+    "feature": "TAXA",
+    "importance": 0.01816531749699095
+  },
+  {
+    "feature": "SEGMENTO_INDUSTRIAL_Servi\u00e7os",
+    "importance": 0.008288623424823258
+  },
+  {
+    "feature": "PORTE_MEDIO",
+    "importance": 0.007684322519470152
+  },
+  {
+    "feature": "DOMINIO_EMAIL_YAHOO",
+    "importance": 0.007411057785941241
+  },
+  {
+    "feature": "PORTE_PEQUENO",
+    "importance": 0.0072363624517751855
+  },
+  {
+    "feature": "DOMINIO_EMAIL_HOTMAIL",
+    "importance": 0.006981323739248388
+  },
+  {
+    "feature": "DOMINIO_EMAIL_GMAIL",
+    "importance": 0.006688716676539985
+  },
+  {
+    "feature": "DDD_11",
+    "importance": 0.0062067013174231245
+  },
+  {
+    "feature": "SEGMENTO_INDUSTRIAL_Ind\u00fastria",
+    "importance": 0.006146830759152831
+  },
+  {
+    "feature": "CEP_2_DIG_48",
+    "importance": 0.0051000928565727716
+  },
+  {
+    "feature": "DDD_65",
+    "importance": 0.0048236611773272075
+  }
+]

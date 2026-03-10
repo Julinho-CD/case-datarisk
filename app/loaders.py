@@ -37,6 +37,12 @@ def resolve_project_path(path_like: str | Path) -> Path:
     return p if p.is_absolute() else (PROJECT_ROOT / p)
 
 
+def best_run_id() -> str | None:
+    payload = load_best_run()
+    run_id = str(payload.get("run_id", "")).strip() if isinstance(payload, dict) else ""
+    return run_id or None
+
+
 def current_data_settings() -> tuple[str, bool]:
     source = resolve_data_source(os.getenv("DATARISK_DATA_SOURCE"))
     refresh = default_refresh_flag()
@@ -151,7 +157,12 @@ def _run_figures_dir(run_id: str) -> Path:
 def load_run_val_predictions(run_id: str | None):
     if not run_id:
         return None
-    return _read_csv_artifact(_run_metrics_path(run_id), required_cols={"y_true", "y_prob"})
+    df = _read_csv_artifact(_run_metrics_path(run_id), required_cols={"y_true", "y_prob"})
+    if df is not None:
+        return df
+    if str(run_id).strip() == (best_run_id() or ""):
+        return load_val_predictions_best()
+    return None
 
 
 @st.cache_data
@@ -240,7 +251,9 @@ def load_run_feature_importance(run_id: str | None):
     else:
         json_path = run_dir / "top_features.json"
         if not json_path.exists():
-            return load_feature_importance()
+            if str(run_id).strip() == (best_run_id() or ""):
+                return load_feature_importance()
+            return None
         df = pd.DataFrame(json.loads(json_path.read_text(encoding="utf-8")))
 
     if df is None or df.empty:
