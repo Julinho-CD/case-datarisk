@@ -136,7 +136,7 @@ def render_page(selected_run_id: str | None, selected_row: dict | None, tr):
             tooltip=["label:N", "count:Q"],
         )
         .properties(height=420),
-        use_container_width=True,
+        width="stretch",
     )
 
     st.markdown(f"**{tr('Prioritization Table', 'Tabela de priorizacao')}**")
@@ -154,7 +154,7 @@ def render_page(selected_run_id: str | None, selected_row: dict | None, tr):
     prio_cols = [c for c in prio_cols if c in pred_df.columns]
 
     top_df = pred_df.sort_values(TARGET_COL, ascending=False).head(int(top_n))[prio_cols].copy()
-    st.dataframe(top_df, use_container_width=True, height=420)
+    st.dataframe(top_df, width="stretch", height=420)
 
     csv_bytes = top_df.to_csv(index=False).encode("utf-8")
     st.download_button(
@@ -162,5 +162,5 @@ def render_page(selected_run_id: str | None, selected_row: dict | None, tr):
         data=csv_bytes,
         file_name="top_prioritized_cases.csv",
         mime="text/csv",
-        use_container_width=True,
+        width="stretch",
     )

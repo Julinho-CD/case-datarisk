@@ -40,7 +40,7 @@ def render_page(comparison: pd.DataFrame | None, selected_row: dict | None, val_
             "best_threshold": tr("Best Threshold", "Melhor Threshold"),
         }
     )
-    st.dataframe(view, use_container_width=True, height=260)
+    st.dataframe(view, width="stretch", height=260)
     st.caption(
         tr(
             "Benchmark table shows all tested models. The charts below are anchored to the official final run.",
@@ -78,10 +78,10 @@ def render_page(comparison: pd.DataFrame | None, selected_row: dict | None, val_
 
     g1, g2 = st.columns(2)
     with g1:
-        st.altair_chart(chart_pr(thr_df, marker), use_container_width=True)
+        st.altair_chart(chart_pr(thr_df, marker), width="stretch")
     with g2:
-        st.altair_chart(chart_roc(thr_df, marker), use_container_width=True)
-    st.altair_chart(chart_f1(thr_df, marker), use_container_width=True)
+        st.altair_chart(chart_roc(thr_df, marker), width="stretch")
+    st.altair_chart(chart_f1(thr_df, marker), width="stretch")
 
     mm = marker.iloc[0]
     k1, k2, k3, k4 = st.columns(4)
@@ -96,7 +96,7 @@ def render_page(comparison: pd.DataFrame | None, selected_row: dict | None, val_
         columns=[tr("Pred 0", "Pred 0"), tr("Pred 1", "Pred 1")],
     )
     st.markdown(f"**{tr('Confusion Matrix At Active Threshold', 'Matriz De Confusão No Threshold Ativo')}**")
-    st.dataframe(cm_df, use_container_width=True)
+    st.dataframe(cm_df, width="stretch")
 
     with st.expander(tr("How To Decide Threshold", "Como Decidir O Threshold")):
         st.markdown(

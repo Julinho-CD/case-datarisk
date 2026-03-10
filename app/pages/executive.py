@@ -76,7 +76,7 @@ def render_page(selected_row: dict | None, comparison: pd.DataFrame | None, val_
             tr("Best Threshold", "Melhor Threshold"),
         ]
         st.markdown(f"**{tr('Top Benchmark Runs', 'Top Runs Do Benchmark')}**")
-        st.dataframe(best3, use_container_width=True)
+        st.dataframe(best3, width="stretch")
 
     st.markdown(f"**{tr('Business Decision Framework', 'Framework De Decisão De Negócio')}**")
     if selected_row and val_pred is not None:
