@@ -28,7 +28,6 @@ env/
 .mlflow/
 mlflow.db
 mlruns/
-artifacts/
 
 # Model artifacts and generated runs
 models/*.joblib

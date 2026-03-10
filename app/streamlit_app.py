@@ -8,14 +8,20 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from app.loaders import load_model_comparison, load_model_info, load_val_predictions_for_run
+from app.loaders import (
+    load_best_run,
+    load_model_comparison,
+    load_pr_curve,
+    load_roc_curve,
+    load_threshold_curve,
+    load_val_predictions_best,
+)
 from app.pages import eda, executive, explainability, modeling, prediction
 
 ENABLE_CUSTOM_CHROME_CSS = False
 
 
 def cast_to_str(x):
-    # Backward compatibility for models serialized with __main__.cast_to_str.
     return x.astype(str)
 
 
@@ -100,64 +106,95 @@ def main():
     )
 
     comparison = None
-    model_info = {}
+    best_run = {}
     selected_run_id = None
     selected_row = None
     val_pred: pd.DataFrame | None = None
+    threshold_curve = None
+    roc_curve_df = None
+    pr_curve_df = None
 
     try:
         comparison = load_model_comparison()
     except Exception as exc:
         debug_log(f"load_model_comparison failed: {exc!r}")
-        st.error("Failed to load comparison artifact.")
+        st.error("Failed to load model comparison artifact.")
         st.exception(exc)
 
     try:
-        model_info = load_model_info()
+        best_run = load_best_run()
     except Exception as exc:
-        debug_log(f"load_model_info failed: {exc!r}")
-        st.error("Failed to load model info artifact.")
+        debug_log(f"load_best_run failed: {exc!r}")
+        st.error("Failed to load best run artifact.")
+        st.exception(exc)
+
+    try:
+        val_pred = load_val_predictions_best()
+    except Exception as exc:
+        debug_log(f"load_val_predictions_best failed: {exc!r}")
+        st.error("Failed to load validation predictions artifact.")
+        st.exception(exc)
+
+    try:
+        threshold_curve = load_threshold_curve()
+    except Exception as exc:
+        debug_log(f"load_threshold_curve failed: {exc!r}")
+        st.error("Failed to load threshold curve artifact.")
+        st.exception(exc)
+
+    try:
+        roc_curve_df = load_roc_curve()
+    except Exception as exc:
+        debug_log(f"load_roc_curve failed: {exc!r}")
+        st.error("Failed to load ROC curve artifact.")
+        st.exception(exc)
+
+    try:
+        pr_curve_df = load_pr_curve()
+    except Exception as exc:
+        debug_log(f"load_pr_curve failed: {exc!r}")
+        st.error("Failed to load PR curve artifact.")
         st.exception(exc)
 
     if comparison is None or len(comparison) == 0:
         st.warning(
             tr(
-                "No benchmark artifact found. Run `python -m src.train` to generate model outputs.",
-                "Nenhum artefato de benchmark encontrado. Rode `python -m src.train` para gerar as saídas de modelo.",
+                "No public benchmark artifact found. Run `python -m src.train` and commit the generated `artifacts/` directory.",
+                "Nenhum artefato público de benchmark foi encontrado. Rode `python -m src.train` e versione a pasta `artifacts/` gerada.",
             )
         )
     else:
-        best_run_id = str(model_info.get("best_run_id", "")).strip()
-        if best_run_id:
+        best_run_id = str(best_run.get("run_id", "")).strip()
+        if best_run_id and "run_id" in comparison.columns:
             official_row = comparison[comparison["run_id"].astype(str) == best_run_id]
             if not official_row.empty:
                 selected_row = official_row.iloc[0].to_dict()
-                selected_run_id = best_run_id
 
         if selected_row is None:
             selected_row = comparison.iloc[0].to_dict()
-            selected_run_id = str(selected_row["run_id"])
 
-        if selected_run_id:
-            try:
-                val_pred = load_val_predictions_for_run(selected_run_id)
-            except Exception as exc:
-                debug_log(f"load_val_predictions_for_run failed: {exc!r}")
-                st.error("Failed to load validation predictions.")
-                st.exception(exc)
+    if selected_row is None and best_run:
+        selected_row = dict(best_run)
 
+    if selected_row is not None:
+        selected_run_id = str(selected_row.get("run_id", best_run.get("run_id", ""))).strip() or None
+        model_name = str(selected_row.get("model_name", best_run.get("model_name", "Model")))
+        pr_auc = float(selected_row.get("pr_auc", best_run.get("pr_auc", 0.0)))
         st.caption(
             tr(
-                f"Official portfolio artifact: {selected_row['model_name']} | Run {selected_run_id} | PR-AUC {float(selected_row['pr_auc']):.4f}",
-                f"Artefato oficial do portfólio: {selected_row['model_name']} | Run {selected_run_id} | PR-AUC {float(selected_row['pr_auc']):.4f}",
+                f"Official portfolio artifact: {model_name} | Run {selected_run_id or '-'} | PR-AUC {pr_auc:.4f}",
+                f"Artefato oficial do portfólio: {model_name} | Run {selected_run_id or '-'} | PR-AUC {pr_auc:.4f}",
             )
         )
 
     debug_log(
         "artifacts: "
         f"comparison_loaded={comparison is not None and len(comparison) > 0}, "
-        f"model_info_loaded={bool(model_info)}, "
-        f"val_pred_loaded={val_pred is not None}"
+        f"best_run_loaded={bool(best_run)}, "
+        f"val_pred_loaded={val_pred is not None}, "
+        f"threshold_curve_loaded={threshold_curve is not None}, "
+        f"roc_curve_loaded={roc_curve_df is not None}, "
+        f"pr_curve_loaded={pr_curve_df is not None}"
     )
 
     safe_render("executive.render_top_summary", executive.render_top_summary, selected_row, val_pred, tr)
@@ -176,7 +213,7 @@ def main():
     active_page = st.radio(
         tr("Section", "Seção"),
         options=list(page_labels.keys()),
-        format_func=lambda k: page_labels[k],
+        format_func=lambda key: page_labels[key],
         horizontal=True,
         key="active_page",
         label_visibility="collapsed",
@@ -187,9 +224,13 @@ def main():
     page_dispatch = {
         "executive": ("executive.render_page", executive.render_page, (selected_row, comparison, val_pred, tr)),
         "eda": ("eda.render_page", eda.render_page, (selected_row, selected_run_id, tr)),
-        "modeling": ("modeling.render_page", modeling.render_page, (comparison, selected_row, val_pred, tr)),
+        "modeling": (
+            "modeling.render_page",
+            modeling.render_page,
+            (comparison, selected_row, threshold_curve, roc_curve_df, pr_curve_df, tr),
+        ),
         "explainability": ("explainability.render_page", explainability.render_page, (selected_row, selected_run_id, tr)),
-        "prediction": ("prediction.render_page", prediction.render_page, (selected_run_id, selected_row, tr)),
+        "prediction": ("prediction.render_page", prediction.render_page, (selected_row, tr)),
     }
 
     page_label, page_fn, page_args = page_dispatch[active_page]

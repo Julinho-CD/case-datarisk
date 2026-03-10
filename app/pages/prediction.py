@@ -6,55 +6,47 @@ import pandas as pd
 import streamlit as st
 
 from app.charts import AXIS_X, PALETTE
-from app.loaders import current_data_settings, load_feature_data, load_model_for_run
-from src.config import TARGET_COL
+from app.loaders import current_data_settings, load_feature_data, load_public_model
+from src.config import BEST_MODEL_ARTIFACT_PATH, TARGET_COL
 
 
-def render_page(selected_run_id: str | None, selected_row: dict | None, tr):
-    st.subheader(tr("Prediction And Prioritization", "Predicao e priorizacao"))
+def render_page(selected_row: dict | None, tr):
+    st.subheader(tr("Prediction And Prioritization", "Predição e priorização"))
     st.caption(
         tr(
             "Use this page to simulate operational queues by threshold and risk ranking.",
-            "Use esta pagina para simular filas operacionais por threshold e ranking de risco.",
+            "Use esta página para simular filas operacionais por threshold e ranking de risco.",
         )
     )
 
     data_source, refresh = current_data_settings()
-    train_fe, test_fe = load_feature_data(data_source, refresh)
+    _, test_fe = load_feature_data(data_source, refresh)
     if test_fe is None:
         st.warning(
             tr(
                 "Data could not be loaded. Provide the official case CSVs locally or allow the app to download them from the official Datarisk repository.",
-                "Os dados nao puderam ser carregados. Forneca os CSVs oficiais do case localmente ou permita que o app os baixe do repositorio oficial da Datarisk.",
+                "Os dados não puderam ser carregados. Forneça os CSVs oficiais do case localmente ou permita que o app os baixe do repositório oficial da Datarisk.",
             )
         )
         return
 
     try:
-        model, model_source_ref, used_fallback_model, model_source_kind = load_model_for_run(selected_run_id)
+        model, model_source_ref = load_public_model()
     except FileNotFoundError:
         st.warning(
             tr(
-                "No local model artifact was found. Load from MLflow artifacts or registry, or configure MLflow for the public demo.",
-                "Nenhum artefato local de modelo foi encontrado. Carregue via artefatos ou registry do MLflow, ou configure o MLflow para a demonstracao publica.",
+                f"Public model artifact not found at `{BEST_MODEL_ARTIFACT_PATH.as_posix()}`. Run the local training/export flow and commit `artifacts/best_model.joblib` for the published app.",
+                f"O artefato público do modelo não foi encontrado em `{BEST_MODEL_ARTIFACT_PATH.as_posix()}`. Rode o fluxo local de treino/exportação e versione `artifacts/best_model.joblib` para o app publicado.",
             )
         )
         return
 
-    if model_source_kind.startswith("mlflow"):
-        st.success(
-            tr(
-                f"Model Loaded From MLflow (`{model_source_ref}`).",
-                f"Modelo carregado do MLflow (`{model_source_ref}`).",
-            )
+    st.success(
+        tr(
+            f"Model loaded from `{model_source_ref}`.",
+            f"Modelo carregado de `{model_source_ref}`.",
         )
-    elif used_fallback_model and selected_run_id:
-        st.info(
-            tr(
-                "Selected Run Model Is Not Available Locally. Using Fallback `models/model.joblib`.",
-                "O modelo da run selecionada nao esta disponivel localmente. Usando fallback `models/model.joblib`.",
-            )
-        )
+    )
 
     drop_cols = [TARGET_COL, "DIAS_ATRASO", "DATA_PAGAMENTO"]
     X_test = test_fe.drop(columns=[c for c in drop_cols if c in test_fe.columns], errors="ignore")
@@ -91,7 +83,7 @@ def render_page(selected_run_id: str | None, selected_row: dict | None, tr):
 
     default_thr = float(selected_row.get("best_threshold", 0.5)) if selected_row else 0.5
     thr = st.slider(
-        tr("Active Prioritization Threshold", "Threshold ativo de priorizacao"),
+        tr("Active Prioritization Threshold", "Threshold ativo de priorização"),
         min_value=0.05,
         max_value=0.95,
         value=float(min(0.95, max(0.05, default_thr))),
@@ -106,21 +98,21 @@ def render_page(selected_run_id: str | None, selected_row: dict | None, tr):
 
     c1, c2, c3, c4 = st.columns(4)
     c1.metric(tr("Rows Scored", "Linhas pontuadas"), f"{n_rows:,}".replace(",", "."))
-    c2.metric(tr("Average Score", "Score medio"), f"{pred_df[TARGET_COL].mean():.4f}")
+    c2.metric(tr("Average Score", "Score médio"), f"{pred_df[TARGET_COL].mean():.4f}")
     c3.metric("P90", f"{p90:.4f}")
     c4.metric(tr("% Above Threshold", "% acima do threshold"), f"{above_thr_pct:.2f}%")
 
-    with st.expander(tr("Business Decision Policy", "Politica de decisao de negocio")):
+    with st.expander(tr("Business Decision Policy", "Política de decisão de negócio")):
         st.markdown(
             tr(
                 "- Keep threshold close to the recommended value as default policy.\n"
                 "- Lower threshold when retention or risk prevention is priority.\n"
                 "- Raise threshold when team capacity is constrained.\n"
                 "- Review queue size weekly against SLA and collection outcomes.",
-                "- Manter o threshold proximo ao recomendado como politica padrao.\n"
-                "- Reduzir o threshold quando retencao ou prevencao de risco for prioridade.\n"
+                "- Manter o threshold próximo ao recomendado como política padrão.\n"
+                "- Reduzir o threshold quando retenção ou prevenção de risco for prioridade.\n"
                 "- Aumentar o threshold quando a capacidade operacional estiver restrita.\n"
-                "- Revisar o tamanho da fila semanalmente conforme SLA e resultados de cobranca.",
+                "- Revisar o tamanho da fila semanalmente conforme SLA e resultados de cobrança.",
             )
         )
 
@@ -139,7 +131,7 @@ def render_page(selected_run_id: str | None, selected_row: dict | None, tr):
         use_container_width=True,
     )
 
-    st.markdown(f"**{tr('Prioritization Table', 'Tabela de priorizacao')}**")
+    st.markdown(f"**{tr('Prioritization Table', 'Tabela de priorização')}**")
     top_n = st.selectbox(tr("Top N Highest-Risk Cases", "Top N casos de maior risco"), [20, 50, 100, 200], index=0)
     prio_cols = [
         "ID_CLIENTE",

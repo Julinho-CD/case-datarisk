@@ -53,6 +53,7 @@ from imblearn.over_sampling import SMOTENC
 from imblearn.pipeline import Pipeline as ImbPipeline
 
 from src.config import (
+    ARTIFACTS_DIR,
     FIG_DIR,
     FIG_RUNS_DIR,
     METRICS_DIR,
@@ -68,6 +69,7 @@ from src.config import (
 )
 from src.data_access import load_processed_datasets
 from src.features import build_features, cast_to_str
+from src.public_artifacts import export_public_artifacts
 
 
 # ---------------------------
@@ -532,6 +534,9 @@ def main():
     enable_smote_variants = should_enable_smote(y_tr)
     grid = build_model_grid(RANDOM_SEED, enable_smote_variants=enable_smote_variants)
     comparison_rows: List[Dict[str, Any]] = []
+    trained_pipelines: Dict[str, Any] = {}
+    val_prediction_frames: Dict[str, pd.DataFrame] = {}
+    feature_importance_tables: Dict[str, List[Dict[str, float]]] = {}
     print(f"SMOTE variants enabled for LogReg/RF: {int(enable_smote_variants)}")
 
     for cfg in grid:
@@ -579,13 +584,14 @@ def main():
 
             # Predictions per run (for the Streamlit threshold slider)
             run_val_pred_path = METRICS_RUNS_DIR / f"val_predictions_{run_id}.csv"
-            pd.DataFrame(
+            run_val_predictions_df = pd.DataFrame(
                 {
                     "y_true": y_val.values.astype(int),
                     "y_prob": val_prob.astype(float),
                     "SAFRA_REF": val_df["SAFRA_REF"].astype(str).values,
                 }
-            ).to_csv(run_val_pred_path, index=False)
+            )
+            run_val_predictions_df.to_csv(run_val_pred_path, index=False)
 
             # Artifacts per run
             save_curves(y_val.values, val_prob, run_fig_dir)
@@ -594,7 +600,7 @@ def main():
             pre_name = "pre_model" if use_smote else "pre"
             feature_names = get_feature_names(pipe.named_steps[pre_name])
             title = f"Feature Importance ({model_title(mkey)})"
-            _ = save_feature_importance(pipe, feature_names, run_fig_dir, title=title, top_n=20)
+            top_features = save_feature_importance(pipe, feature_names, run_fig_dir, title=title, top_n=20)
 
             # Optional local export (disabled by default to keep repo lightweight).
             run_model_path: Optional[Path] = None
@@ -670,6 +676,9 @@ def main():
                 "run_model_path": (to_project_relative(run_model_path) if run_model_path is not None else ""),
             }
             comparison_rows.append(row)
+            trained_pipelines[run_id] = pipe
+            val_prediction_frames[run_id] = run_val_predictions_df
+            feature_importance_tables[run_id] = top_features
 
             print(
                 f"{run_name} | ROC-AUC={roc_auc:.4f} | PR-AUC={pr_auc:.4f} | "
@@ -754,6 +763,15 @@ def main():
     }
     (METRICS_DIR / "best_run.json").write_text(json.dumps(best_run_payload, indent=2), encoding="utf-8")
 
+    export_results = export_public_artifacts(
+        best_run_payload=best_run_payload,
+        comparison_df=comp,
+        val_predictions_df=val_prediction_frames[best_run_id],
+        feature_importance_df=feature_importance_tables.get(best_run_id, []),
+        best_fig_dir=best_fig_dir,
+        best_model=trained_pipelines.get(best_run_id),
+    )
+
     # Mark best run in MLflow (tag)
     try:
         with mlflow.start_run(run_id=best_run_id):
@@ -765,10 +783,13 @@ def main():
     print("\n=== FINAL RESULT ===")
     print(f"Best (by {BEST_SELECTION_METRIC}): {best['model_name']} | smote={best['use_smote']} | run_id={best_run_id}")
     print(f"Comparison saved to: {MODEL_COMPARISON_PATH}")
+    print(f"Public artifacts saved to: {ARTIFACTS_DIR}")
     if export_local_models:
         print(f"Best model saved to: {MODEL_PATH}")
     else:
-        print("Local model export disabled (EXPORT_LOCAL_MODELS=0). Using MLflow artifacts as source of truth.")
+        print("Local model export disabled (EXPORT_LOCAL_MODELS=0). Public artifacts remain available under artifacts/.")
+    if not export_results["best_model_exported"]:
+        print("WARNING: public best_model.joblib was not exported.")
     print("To inspect runs, execute `mlflow ui` at the project root")
 
 

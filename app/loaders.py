@@ -3,20 +3,21 @@ import os
 from pathlib import Path
 
 import joblib
-import mlflow
-import mlflow.sklearn
 import pandas as pd
 import streamlit as st
 
 from src.config import (
-    FIG_DIR,
-    FIG_RUNS_DIR,
-    METRICS_DIR,
-    METRICS_RUNS_DIR,
-    MODEL_COMPARISON_PATH,
-    MODEL_PATH,
-    MODELS_RUNS_DIR,
+    BEST_MODEL_ARTIFACT_PATH,
+    BEST_RUN_ARTIFACT_PATH,
+    FEATURE_IMPORTANCE_CSV_ARTIFACT_PATH,
+    FEATURE_IMPORTANCE_PNG_ARTIFACT_PATH,
+    MODEL_COMPARISON_ARTIFACT_PATH,
+    PR_CURVE_ARTIFACT_PATH,
     PROJECT_ROOT,
+    ROC_CURVE_ARTIFACT_PATH,
+    SHAP_SUMMARY_PNG_ARTIFACT_PATH,
+    THRESHOLD_CURVE_ARTIFACT_PATH,
+    VAL_PREDICTIONS_BEST_ARTIFACT_PATH,
 )
 from src.data_access import default_refresh_flag, load_processed_datasets, resolve_data_source
 from src.features import build_features
@@ -55,13 +56,22 @@ def load_feature_data(source: str | None = None, refresh: bool = False):
     return build_features(train, test)
 
 
+def _read_csv_artifact(path: Path, required_cols: set[str] | None = None) -> pd.DataFrame | None:
+    if not path.exists():
+        return None
+    df = pd.read_csv(path)
+    if required_cols and not required_cols.issubset(df.columns):
+        return None
+    return df
+
+
 @st.cache_data
 def load_model_comparison():
-    if not MODEL_COMPARISON_PATH.exists():
+    df = _read_csv_artifact(MODEL_COMPARISON_ARTIFACT_PATH)
+    if df is None:
         return None
-    df = pd.read_csv(MODEL_COMPARISON_PATH)
-    df = df.replace(r"^\s*$", pd.NA, regex=True)
 
+    df = df.replace(r"^\s*$", pd.NA, regex=True)
     numeric_cols = [
         "pr_auc",
         "roc_auc",
@@ -71,11 +81,13 @@ def load_model_comparison():
         "precision_best_threshold",
         "recall_best_threshold",
         "positive_rate_best_threshold",
+        "cv_roc_auc_mean",
+        "cv_pr_auc_mean",
         "use_smote",
     ]
-    for c in numeric_cols:
-        if c in df.columns:
-            df[c] = pd.to_numeric(df[c], errors="coerce")
+    for column in numeric_cols:
+        if column in df.columns:
+            df[column] = pd.to_numeric(df[column], errors="coerce")
 
     required_cols = [c for c in ["run_id", "model_name", "pr_auc", "roc_auc"] if c in df.columns]
     if required_cols:
@@ -87,84 +99,62 @@ def load_model_comparison():
 
 
 @st.cache_data
-def load_val_predictions_for_run(run_id: str):
-    p = METRICS_RUNS_DIR / f"val_predictions_{run_id}.csv"
-    if not p.exists():
-        return None
-    df = pd.read_csv(p)
-    if not {"y_true", "y_prob"}.issubset(df.columns):
-        return None
-    return df
+def load_best_run():
+    return safe_read_json(BEST_RUN_ARTIFACT_PATH, default={})
 
 
 @st.cache_data
-def load_json_artifact(path_like: str | Path, default=None):
-    return safe_read_json(resolve_project_path(path_like), default=default)
+def load_val_predictions_best():
+    return _read_csv_artifact(VAL_PREDICTIONS_BEST_ARTIFACT_PATH, required_cols={"y_true", "y_prob"})
 
 
-def load_top_features(selected_row: dict | None, run_id: str | None):
-    path_candidates: list[Path] = []
-
-    if selected_row and selected_row.get("run_fig_dir"):
-        path_candidates.append(resolve_project_path(str(selected_row["run_fig_dir"])) / "top_features.json")
-    if run_id:
-        path_candidates.append(FIG_RUNS_DIR / str(run_id) / "top_features.json")
-    path_candidates.append(FIG_DIR / "top_features.json")
-
-    for p in path_candidates:
-        data = load_json_artifact(p, default=None)
-        if data:
-            return data
-    return []
+@st.cache_data
+def load_threshold_curve():
+    return _read_csv_artifact(
+        THRESHOLD_CURVE_ARTIFACT_PATH,
+        required_cols={"threshold", "precision", "recall", "f1", "fpr", "tp", "tn", "fp", "fn"},
+    )
 
 
-def _load_model_from_mlflow(run_id: str | None):
-    tracking_uri = os.getenv("MLFLOW_TRACKING_URI")
-    model_uri = os.getenv("MLFLOW_MODEL_URI")
+@st.cache_data
+def load_roc_curve():
+    return _read_csv_artifact(ROC_CURVE_ARTIFACT_PATH, required_cols={"fpr", "tpr"})
 
-    if tracking_uri:
-        mlflow.set_tracking_uri(tracking_uri)
 
-    if model_uri:
-        model = mlflow.sklearn.load_model(model_uri)
-        return model, model_uri, "mlflow_model_uri"
+@st.cache_data
+def load_pr_curve():
+    return _read_csv_artifact(PR_CURVE_ARTIFACT_PATH, required_cols={"precision", "recall"})
 
-    if run_id:
-        run_uri = f"runs:/{run_id}/model"
-        model = mlflow.sklearn.load_model(run_uri)
-        return model, run_uri, "mlflow_run"
 
-    raise FileNotFoundError("No MLflow model URI or run ID available.")
+@st.cache_data
+def load_feature_importance():
+    df = _read_csv_artifact(FEATURE_IMPORTANCE_CSV_ARTIFACT_PATH, required_cols={"feature", "importance"})
+    if df is None:
+        return None
+    if "rank" not in df.columns:
+        df = df.copy()
+        df.insert(0, "rank", range(1, len(df) + 1))
+    df["importance"] = pd.to_numeric(df["importance"], errors="coerce")
+    return df.dropna(subset=["feature", "importance"]).reset_index(drop=True)
+
+
+def load_top_features(_selected_row: dict | None = None, _run_id: str | None = None):
+    df = load_feature_importance()
+    if df is None or df.empty:
+        return []
+    return df[["feature", "importance"]].to_dict(orient="records")
 
 
 @st.cache_resource
-def load_model_for_run(run_id: str | None):
-    # If tracking URI is configured, prefer MLflow model loading first.
-    if os.getenv("MLFLOW_TRACKING_URI") or os.getenv("MLFLOW_MODEL_URI"):
-        try:
-            model, uri, source = _load_model_from_mlflow(run_id)
-            return model, uri, False, source
-        except Exception:
-            pass
-
-    if run_id:
-        run_path = MODELS_RUNS_DIR / f"model_{run_id}.joblib"
-        if run_path.exists():
-            return joblib.load(run_path), str(run_path), False, "local_run"
-
-    if MODEL_PATH.exists():
-        return joblib.load(MODEL_PATH), str(MODEL_PATH), True, "local_fallback"
-
-    try:
-        model, uri, source = _load_model_from_mlflow(run_id)
-        return model, uri, False, source
-    except Exception as exc:
-        raise FileNotFoundError(
-            "No local model artifact found and MLflow loading failed. "
-            "Set MLFLOW_TRACKING_URI and optionally MLFLOW_MODEL_URI, or run local training."
-        ) from exc
+def load_public_model():
+    if not BEST_MODEL_ARTIFACT_PATH.exists():
+        raise FileNotFoundError(f"Missing public model artifact: {BEST_MODEL_ARTIFACT_PATH}")
+    return joblib.load(BEST_MODEL_ARTIFACT_PATH), str(BEST_MODEL_ARTIFACT_PATH)
 
 
-@st.cache_data
-def load_model_info():
-    return load_json_artifact(METRICS_DIR / "model_info.json", default={})
+def get_feature_importance_image_path() -> Path | None:
+    return FEATURE_IMPORTANCE_PNG_ARTIFACT_PATH if FEATURE_IMPORTANCE_PNG_ARTIFACT_PATH.exists() else None
+
+
+def get_shap_summary_image_path() -> Path | None:
+    return SHAP_SUMMARY_PNG_ARTIFACT_PATH if SHAP_SUMMARY_PNG_ARTIFACT_PATH.exists() else None

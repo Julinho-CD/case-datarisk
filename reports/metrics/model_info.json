@@ -1,8 +1,9 @@
 {
   "best_model": "Random Forest",
   "best_model_key": "rf",
-  "best_run_id": "56e3d7b850c24eb78a05b2a232f30fd5",
+  "best_run_id": "91d29a8112004301a993db0fdb1a9307",
   "best_use_smote": 0,
+  "local_model_exported": 0,
   "smote_variants_enabled": 1,
   "smote_policy": "SMOTE only for Logistic Regression and Random Forest when there is relevant imbalance.",
   "selection_metric": "pr_auc",

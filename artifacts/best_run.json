@@ -1,0 +1,23 @@
+{
+  "run_id": "91d29a8112004301a993db0fdb1a9307",
+  "run_name": "rf|smote=0",
+  "model_name": "Random Forest",
+  "variant": "nosmote",
+  "use_smote": false,
+  "roc_auc": 0.9600392063154914,
+  "pr_auc": 0.72893295727598,
+  "f1_at_05": 0.5517241379310345,
+  "best_threshold": 0.25,
+  "f1_best_threshold": 0.6773255813953488,
+  "precision_best_threshold": 0.6619318181818182,
+  "recall_best_threshold": 0.6934523809523809,
+  "positive_rate_best_threshold": 0.06978588421887391,
+  "cv_roc_auc_mean": 0.9640314654158502,
+  "cv_pr_auc_mean": 0.7551040753450717,
+  "selection_metric": "pr_auc",
+  "is_best": true,
+  "val_safras": [
+    "2021-05-01 00:00:00",
+    "2021-06-01 00:00:00"
+  ]
+}

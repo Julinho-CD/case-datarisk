@@ -10,23 +10,24 @@ PALETTE = {
 }
 
 AXIS_X = alt.Axis(labelAngle=0, labelLimit=220)
+AXIS_X_VERTICAL = alt.Axis(labelAngle=-90, labelLimit=260, labelOverlap=False)
 
 
-def chart_pr(thr_df: pd.DataFrame, marker_df: pd.DataFrame):
+def chart_pr(curve_df: pd.DataFrame, marker_df: pd.DataFrame):
     return (
-        alt.Chart(thr_df)
+        alt.Chart(curve_df)
         .mark_line(color=PALETTE["blue"], strokeWidth=3)
         .encode(x=alt.X("recall:Q", title="Recall"), y=alt.Y("precision:Q", title="Precision"))
         + alt.Chart(marker_df).mark_point(color=PALETTE["orange"], size=120).encode(x="recall:Q", y="precision:Q")
     ).properties(height=260)
 
 
-def chart_roc(thr_df: pd.DataFrame, marker_df: pd.DataFrame):
+def chart_roc(curve_df: pd.DataFrame, marker_df: pd.DataFrame):
     return (
-        alt.Chart(thr_df)
+        alt.Chart(curve_df)
         .mark_line(color=PALETTE["teal"], strokeWidth=3)
-        .encode(x=alt.X("fpr:Q", title="False Positive Rate"), y=alt.Y("recall:Q", title="True Positive Rate"))
-        + alt.Chart(marker_df).mark_point(color=PALETTE["orange"], size=120).encode(x="fpr:Q", y="recall:Q")
+        .encode(x=alt.X("fpr:Q", title="False Positive Rate"), y=alt.Y("tpr:Q", title="True Positive Rate"))
+        + alt.Chart(marker_df).mark_point(color=PALETTE["orange"], size=120).encode(x="fpr:Q", y="tpr:Q")
     ).properties(height=260)
 
 
@@ -40,22 +41,30 @@ def chart_f1(thr_df: pd.DataFrame, marker_df: pd.DataFrame):
 
 
 def pearson_heatmap(df: pd.DataFrame, columns: list[str]):
-    corr = df[columns].corr(method="pearson").reset_index().melt("index")
-    corr.columns = ["feature_x", "feature_y", "corr"]
-
-    chart = (
-        alt.Chart(corr)
-        .mark_rect()
-        .encode(
-            x=alt.X("feature_x:N", axis=AXIS_X, title=None),
-            y=alt.Y("feature_y:N", axis=AXIS_X, title=None),
-            color=alt.Color("corr:Q", scale=alt.Scale(scheme="redblue", domain=[-1, 1])),
-            tooltip=["feature_x:N", "feature_y:N", alt.Tooltip("corr:Q", format=".3f")],
-        )
-        .properties(height=360)
-    )
     corr_df = df[columns].corr(method="pearson")
-    return chart, corr_df
+    corr = corr_df.reset_index().melt("index")
+    corr.columns = ["feature_y", "feature_x", "corr"]
+    corr["corr_label"] = corr["corr"].map(lambda value: f"{value:.2f}")
+
+    chart_width = max(420, len(columns) * 58)
+    chart_height = max(360, len(columns) * 34)
+
+    base = alt.Chart(corr).encode(
+        x=alt.X("feature_x:N", axis=AXIS_X_VERTICAL, title=None, sort=columns),
+        y=alt.Y("feature_y:N", axis=AXIS_X, title=None, sort=columns),
+    )
+
+    heatmap = base.mark_rect().encode(
+        color=alt.Color("corr:Q", scale=alt.Scale(scheme="redblue", domain=[-1, 1]), title="corr"),
+        tooltip=["feature_x:N", "feature_y:N", alt.Tooltip("corr:Q", format=".3f")],
+    )
+
+    labels = base.mark_text(fontSize=11).encode(
+        text="corr_label:N",
+        color=alt.condition("abs(datum.corr) > 0.45", alt.value("white"), alt.value("#0f172a")),
+    )
+
+    return (heatmap + labels).properties(width=chart_width, height=chart_height), corr_df
 
 
 def story_chart_numeric(agg: pd.DataFrame, feature: str):

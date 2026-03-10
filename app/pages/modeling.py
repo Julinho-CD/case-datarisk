@@ -1,15 +1,27 @@
 import pandas as pd
 import streamlit as st
 
-from app.analysis import compute_threshold_table, threshold_row
+from app.analysis import threshold_row
 from app.charts import chart_f1, chart_pr, chart_roc
 
 
-def render_page(comparison: pd.DataFrame | None, selected_row: dict | None, val_pred: pd.DataFrame | None, tr):
-    st.subheader(tr("Modeling And Threshold", "Modelagem E Threshold"))
+def render_page(
+    comparison: pd.DataFrame | None,
+    selected_row: dict | None,
+    threshold_curve: pd.DataFrame | None,
+    roc_curve_df: pd.DataFrame | None,
+    pr_curve_df: pd.DataFrame | None,
+    tr,
+):
+    st.subheader(tr("Modeling And Threshold", "Modelagem e Threshold"))
 
     if comparison is None or len(comparison) == 0:
-        st.warning(tr("No Benchmark Data Found. Run `python -m src.train`.", "Benchmark Não Encontrado. Rode `python -m src.train`."))
+        st.warning(
+            tr(
+                "No benchmark artifact was found. Run `python -m src.train` and export public artifacts.",
+                "Nenhum artefato de benchmark foi encontrado. Rode `python -m src.train` e exporte os artefatos públicos.",
+            )
+        )
         return
 
     view = comparison.copy()
@@ -43,45 +55,64 @@ def render_page(comparison: pd.DataFrame | None, selected_row: dict | None, val_
     st.dataframe(view, width="stretch", height=260)
     st.caption(
         tr(
-            "Benchmark table shows all tested models. The charts below are anchored to the official final run.",
-            "A tabela mostra todos os modelos testados. Os graficos abaixo estao ancorados na run oficial final.",
+            "Benchmark table shows all tested models. The charts below use the exported final artifact.",
+            "A tabela mostra todos os modelos testados. Os gráficos abaixo usam o artefato final exportado.",
         )
     )
 
     if not selected_row:
         return
 
-    st.markdown(f"**{tr('Selected Model Summary', 'Resumo Do Modelo Selecionado')}**")
+    st.markdown(f"**{tr('Selected Model Summary', 'Resumo do modelo selecionado')}**")
     m1, m2, m3, m4 = st.columns(4)
     m1.metric("PR-AUC", f"{float(selected_row.get('pr_auc', 0.0)):.4f}")
     m2.metric("ROC-AUC", f"{float(selected_row.get('roc_auc', 0.0)):.4f}")
     m3.metric("F1@0.5", f"{float(selected_row.get('f1_at_05', 0.0)):.4f}")
     m4.metric("F1@best", f"{float(selected_row.get('f1_best_threshold', 0.0)):.4f}")
 
-    if val_pred is None:
-        st.info(tr("Validation Predictions Were Not Found For This Run.", "Predições De Validação Não Foram Encontradas Para Este Run."))
+    if threshold_curve is None or threshold_curve.empty:
+        st.info(
+            tr(
+                "Threshold diagnostics were not exported. Add `artifacts/threshold_curve.csv` to enable the interactive modeling view.",
+                "Os diagnósticos de threshold não foram exportados. Adicione `artifacts/threshold_curve.csv` para habilitar a visão interativa de modelagem.",
+            )
+        )
         return
-
-    y_true = val_pred["y_true"].astype(int).values
-    y_prob = val_pred["y_prob"].astype(float).values
-    thr_df = compute_threshold_table(y_true, y_prob)
 
     default_thr = float(selected_row.get("best_threshold", 0.5))
     thr = st.slider(
-        tr("Interactive Threshold", "Threshold Interativo"),
+        tr("Interactive Threshold", "Threshold interativo"),
         min_value=0.05,
         max_value=0.95,
         value=float(min(0.95, max(0.05, default_thr))),
         step=0.01,
     )
-    marker = threshold_row(thr_df, thr)
+    marker = threshold_row(threshold_curve, thr)
 
     g1, g2 = st.columns(2)
     with g1:
-        st.altair_chart(chart_pr(thr_df, marker), use_container_width=True)
+        if pr_curve_df is None or pr_curve_df.empty:
+            st.info(
+                tr(
+                    "PR curve artifact is unavailable.",
+                    "O artefato da curva PR não está disponível.",
+                )
+            )
+        else:
+            pr_marker = marker[["recall", "precision"]].copy()
+            st.altair_chart(chart_pr(pr_curve_df, pr_marker), use_container_width=True)
     with g2:
-        st.altair_chart(chart_roc(thr_df, marker), use_container_width=True)
-    st.altair_chart(chart_f1(thr_df, marker), use_container_width=True)
+        if roc_curve_df is None or roc_curve_df.empty:
+            st.info(
+                tr(
+                    "ROC curve artifact is unavailable.",
+                    "O artefato da curva ROC não está disponível.",
+                )
+            )
+        else:
+            roc_marker = marker.assign(tpr=marker["recall"])
+            st.altair_chart(chart_roc(roc_curve_df, roc_marker[["fpr", "tpr"]]), use_container_width=True)
+    st.altair_chart(chart_f1(threshold_curve, marker), use_container_width=True)
 
     mm = marker.iloc[0]
     k1, k2, k3, k4 = st.columns(4)
@@ -95,10 +126,10 @@ def render_page(comparison: pd.DataFrame | None, selected_row: dict | None, val_
         index=[tr("Actual 0", "Real 0"), tr("Actual 1", "Real 1")],
         columns=[tr("Pred 0", "Pred 0"), tr("Pred 1", "Pred 1")],
     )
-    st.markdown(f"**{tr('Confusion Matrix At Active Threshold', 'Matriz De Confusão No Threshold Ativo')}**")
+    st.markdown(f"**{tr('Confusion Matrix At Active Threshold', 'Matriz de confusão no threshold ativo')}**")
     st.dataframe(cm_df, width="stretch")
 
-    with st.expander(tr("How To Decide Threshold", "Como Decidir O Threshold")):
+    with st.expander(tr("How To Decide Threshold", "Como decidir o threshold")):
         st.markdown(
             tr(
                 "- Lower threshold: more cases flagged, higher recall, more workload.\n"
@@ -106,6 +137,6 @@ def render_page(comparison: pd.DataFrame | None, selected_row: dict | None, val_
                 "- Match threshold to team capacity and business cost of false negatives.",
                 "- Threshold menor: mais casos sinalizados, maior recall, mais carga operacional.\n"
                 "- Threshold maior: menos casos sinalizados, mais seletividade e geralmente maior precisão.\n"
-                "- Ajuste o threshold conforme capacidade do time e custo de falso negativo.",
+                "- Ajuste o threshold conforme a capacidade do time e o custo de falso negativo.",
             )
         )
