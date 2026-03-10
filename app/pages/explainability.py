@@ -21,7 +21,7 @@ def render_page(selected_row: dict | None, selected_run_id: str | None, tr):
     if imp_df is None or imp_df.empty:
         st.info(
             tr(
-                "Feature importance artifacts were not found. Export `artifacts/feature_importance.csv` and the related figures.",
+                "Feature-importance artifacts were not found. Export `artifacts/feature_importance.csv` and the related figures.",
                 "Os artefatos de importância de features não foram encontrados. Exporte `artifacts/feature_importance.csv` e as figuras relacionadas.",
             )
         )
@@ -43,28 +43,36 @@ def render_page(selected_row: dict | None, selected_run_id: str | None, tr):
     feature_importance_image = get_feature_importance_image_path()
     shap_summary_image = get_shap_summary_image_path()
     if feature_importance_image or shap_summary_image:
-        st.markdown(f"**{tr('Saved Explainability Figures', 'Figuras de explicabilidade salvas')}**")
+        st.markdown(f"**{tr('Saved explainability figures', 'Figuras salvas de explicabilidade')}**")
         col1, col2 = st.columns(2)
         with col1:
             if feature_importance_image:
-                st.image(str(feature_importance_image), caption=tr("Feature importance figure", "Figura de importância de features"), use_container_width=True)
+                st.image(
+                    str(feature_importance_image),
+                    caption=tr("Feature-importance figure", "Figura de importância de features"),
+                    use_container_width=True,
+                )
             else:
-                st.info(tr("Feature importance image not available.", "Imagem de importância de features indisponível."))
+                st.info(tr("Feature-importance image not available.", "A imagem de importância de features não está disponível."))
         with col2:
             if shap_summary_image:
-                st.image(str(shap_summary_image), caption=tr("Explainability summary figure", "Figura-resumo de explicabilidade"), use_container_width=True)
+                st.image(
+                    str(shap_summary_image),
+                    caption=tr("Explainability-summary figure", "Figura-resumo de explicabilidade"),
+                    use_container_width=True,
+                )
             else:
-                st.info(tr("Explainability summary image not available.", "Imagem-resumo de explicabilidade indisponível."))
+                st.info(tr("Explainability-summary image not available.", "A imagem-resumo de explicabilidade não está disponível."))
 
-    with st.expander(tr("Interpretation Notes", "Notas de interpretação")):
+    with st.expander(tr("Interpretation notes", "Notas de interpretação")):
         st.markdown(
             tr(
                 "- Importance indicates contribution to model ranking, not causality.\n"
                 "- Use this with EDA evidence and business context.\n"
                 "- Review data quality and category stability before decisions.",
                 "- Importância indica contribuição para o ranking do modelo, não causalidade.\n"
-                "- Use junto com evidências de EDA e contexto de negócio.\n"
-                "- Revise qualidade dos dados e estabilidade de categorias antes da decisão.",
+                "- Use isso em conjunto com as evidências de EDA e o contexto de negócio.\n"
+                "- Revise a qualidade dos dados e a estabilidade das categorias antes de decidir.",
             )
         )
 
@@ -79,9 +87,9 @@ def render_page(selected_row: dict | None, selected_run_id: str | None, tr):
         )
         return
 
-    st.markdown(f"**{tr('Top Feature Stories', 'Histórias das top features')}**")
+    st.markdown(f"**{tr('Top feature stories', 'Histórias das principais features')}**")
     top_feats = load_top_features(selected_row, selected_run_id)
-    story_n = st.radio(tr("How Many Features", "Quantas Features"), [3, 5], index=1, horizontal=True, key="exp_story_n")
+    story_n = st.radio(tr("How many features", "Quantas features"), [3, 5], index=1, horizontal=True, key="exp_story_n")
     stories = select_story_features(top_feats, train_fe, top_n=story_n)
 
     for story in stories:

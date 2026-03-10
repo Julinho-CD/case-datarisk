@@ -3,6 +3,7 @@ import streamlit as st
 
 from app.analysis import threshold_row
 from app.charts import chart_f1, chart_pr, chart_roc
+from app.loaders import current_data_settings, load_processed
 
 
 def render_page(
@@ -13,7 +14,20 @@ def render_page(
     pr_curve_df: pd.DataFrame | None,
     tr,
 ):
-    st.subheader(tr("Modeling And Threshold", "Modelagem e Threshold"))
+    st.subheader(tr("Modeling and threshold", "Modelagem e threshold"))
+
+    data_source, refresh = current_data_settings()
+    train_df, test_df = load_processed(data_source, refresh)
+    if train_df is not None and test_df is not None:
+        total_rows = len(train_df) + len(test_df)
+        train_share = (len(train_df) / total_rows * 100.0) if total_rows else 0.0
+        test_share = (len(test_df) / total_rows * 100.0) if total_rows else 0.0
+
+        d1, d2, d3, d4 = st.columns(4)
+        d1.metric(tr("Rows used for train", "Linhas usadas para treino"), f"{len(train_df):,}".replace(",", "."))
+        d2.metric(tr("Rows used for test", "Linhas usadas para teste"), f"{len(test_df):,}".replace(",", "."))
+        d3.metric(tr("Train share", "% treino"), f"{train_share:.1f}%")
+        d4.metric(tr("Test share", "% teste"), f"{test_share:.1f}%")
 
     if comparison is None or len(comparison) == 0:
         st.warning(
@@ -49,21 +63,21 @@ def render_page(
             "f1_best_threshold": "F1@best",
             "precision_best_threshold": tr("Precision@Best", "Precisão@Best"),
             "recall_best_threshold": "Recall@best",
-            "best_threshold": tr("Best Threshold", "Melhor Threshold"),
+            "best_threshold": tr("Best threshold", "Melhor threshold"),
         }
     )
     st.dataframe(view, width="stretch", height=260)
     st.caption(
         tr(
-            "Benchmark table shows all tested models. The charts below use the exported final artifact.",
-            "A tabela mostra todos os modelos testados. Os gráficos abaixo usam o artefato final exportado.",
+            "The benchmark table shows all tested models. The charts below use the exported final artifact.",
+            "A tabela de benchmark mostra todos os modelos testados. Os gráficos abaixo usam o artefato final exportado.",
         )
     )
 
     if not selected_row:
         return
 
-    st.markdown(f"**{tr('Selected Model Summary', 'Resumo do modelo selecionado')}**")
+    st.markdown(f"**{tr('Selected model summary', 'Resumo do modelo selecionado')}**")
     m1, m2, m3, m4 = st.columns(4)
     m1.metric("PR-AUC", f"{float(selected_row.get('pr_auc', 0.0)):.4f}")
     m2.metric("ROC-AUC", f"{float(selected_row.get('roc_auc', 0.0)):.4f}")
@@ -81,7 +95,7 @@ def render_page(
 
     default_thr = float(selected_row.get("best_threshold", 0.5))
     thr = st.slider(
-        tr("Interactive Threshold", "Threshold interativo"),
+        tr("Interactive threshold", "Threshold interativo"),
         min_value=0.05,
         max_value=0.95,
         value=float(min(0.95, max(0.05, default_thr))),
@@ -92,23 +106,13 @@ def render_page(
     g1, g2 = st.columns(2)
     with g1:
         if pr_curve_df is None or pr_curve_df.empty:
-            st.info(
-                tr(
-                    "PR curve artifact is unavailable.",
-                    "O artefato da curva PR não está disponível.",
-                )
-            )
+            st.info(tr("PR-curve artifact is unavailable.", "O artefato da curva PR não está disponível."))
         else:
             pr_marker = marker[["recall", "precision"]].copy()
             st.altair_chart(chart_pr(pr_curve_df, pr_marker), use_container_width=True)
     with g2:
         if roc_curve_df is None or roc_curve_df.empty:
-            st.info(
-                tr(
-                    "ROC curve artifact is unavailable.",
-                    "O artefato da curva ROC não está disponível.",
-                )
-            )
+            st.info(tr("ROC-curve artifact is unavailable.", "O artefato da curva ROC não está disponível."))
         else:
             roc_marker = marker.assign(tpr=marker["recall"])
             st.altair_chart(chart_roc(roc_curve_df, roc_marker[["fpr", "tpr"]]), use_container_width=True)
@@ -119,23 +123,23 @@ def render_page(
     k1.metric("Precision", f"{mm['precision']:.3f}")
     k2.metric("Recall", f"{mm['recall']:.3f}")
     k3.metric("F1", f"{mm['f1']:.3f}")
-    k4.metric(tr("Positive Rate", "Taxa Positiva"), f"{mm['positive_rate']:.3f}")
+    k4.metric(tr("Positive rate", "Taxa positiva"), f"{mm['positive_rate']:.3f}")
 
     cm_df = pd.DataFrame(
         [[int(mm["tn"]), int(mm["fp"])], [int(mm["fn"]), int(mm["tp"])]],
         index=[tr("Actual 0", "Real 0"), tr("Actual 1", "Real 1")],
         columns=[tr("Pred 0", "Pred 0"), tr("Pred 1", "Pred 1")],
     )
-    st.markdown(f"**{tr('Confusion Matrix At Active Threshold', 'Matriz de confusão no threshold ativo')}**")
+    st.markdown(f"**{tr('Confusion matrix at the active threshold', 'Matriz de confusão no threshold ativo')}**")
     st.dataframe(cm_df, width="stretch")
 
-    with st.expander(tr("How To Decide Threshold", "Como decidir o threshold")):
+    with st.expander(tr("How to choose the threshold", "Como escolher o threshold")):
         st.markdown(
             tr(
                 "- Lower threshold: more cases flagged, higher recall, more workload.\n"
                 "- Higher threshold: fewer cases flagged, more selectivity, usually higher precision.\n"
                 "- Match threshold to team capacity and business cost of false negatives.",
-                "- Threshold menor: mais casos sinalizados, maior recall, mais carga operacional.\n"
+                "- Threshold menor: mais casos sinalizados, maior recall e mais carga operacional.\n"
                 "- Threshold maior: menos casos sinalizados, mais seletividade e geralmente maior precisão.\n"
                 "- Ajuste o threshold conforme a capacidade do time e o custo de falso negativo.",
             )

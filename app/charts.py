@@ -10,7 +10,8 @@ PALETTE = {
 }
 
 AXIS_X = alt.Axis(labelAngle=0, labelLimit=220)
-AXIS_X_VERTICAL = alt.Axis(labelAngle=-90, labelLimit=260, labelOverlap=False)
+AXIS_X_VERTICAL = alt.Axis(labelAngle=-90, labelLimit=260, labelOverlap=False, labelFontSize=11)
+AXIS_Y_HEATMAP = alt.Axis(labelLimit=260, labelFontSize=12)
 
 
 def chart_pr(curve_df: pd.DataFrame, marker_df: pd.DataFrame):
@@ -18,7 +19,9 @@ def chart_pr(curve_df: pd.DataFrame, marker_df: pd.DataFrame):
         alt.Chart(curve_df)
         .mark_line(color=PALETTE["blue"], strokeWidth=3)
         .encode(x=alt.X("recall:Q", title="Recall"), y=alt.Y("precision:Q", title="Precision"))
-        + alt.Chart(marker_df).mark_point(color=PALETTE["orange"], size=120).encode(x="recall:Q", y="precision:Q")
+        + alt.Chart(marker_df)
+        .mark_point(color=PALETTE["orange"], fill=PALETTE["orange"], filled=True, size=120, strokeWidth=0)
+        .encode(x="recall:Q", y="precision:Q")
     ).properties(height=260)
 
 
@@ -27,7 +30,9 @@ def chart_roc(curve_df: pd.DataFrame, marker_df: pd.DataFrame):
         alt.Chart(curve_df)
         .mark_line(color=PALETTE["teal"], strokeWidth=3)
         .encode(x=alt.X("fpr:Q", title="False Positive Rate"), y=alt.Y("tpr:Q", title="True Positive Rate"))
-        + alt.Chart(marker_df).mark_point(color=PALETTE["orange"], size=120).encode(x="fpr:Q", y="tpr:Q")
+        + alt.Chart(marker_df)
+        .mark_point(color=PALETTE["orange"], fill=PALETTE["orange"], filled=True, size=120, strokeWidth=0)
+        .encode(x="fpr:Q", y="tpr:Q")
     ).properties(height=260)
 
 
@@ -36,7 +41,9 @@ def chart_f1(thr_df: pd.DataFrame, marker_df: pd.DataFrame):
         alt.Chart(thr_df)
         .mark_line(color=PALETTE["green"], strokeWidth=3)
         .encode(x=alt.X("threshold:Q", title="Threshold"), y=alt.Y("f1:Q", title="F1"))
-        + alt.Chart(marker_df).mark_point(color=PALETTE["orange"], size=120).encode(x="threshold:Q", y="f1:Q")
+        + alt.Chart(marker_df)
+        .mark_point(color=PALETTE["orange"], fill=PALETTE["orange"], filled=True, size=120, strokeWidth=0)
+        .encode(x="threshold:Q", y="f1:Q")
     ).properties(height=240)
 
 
@@ -46,16 +53,20 @@ def pearson_heatmap(df: pd.DataFrame, columns: list[str]):
     corr.columns = ["feature_y", "feature_x", "corr"]
     corr["corr_label"] = corr["corr"].map(lambda value: f"{value:.2f}")
 
-    chart_width = max(420, len(columns) * 58)
-    chart_height = max(360, len(columns) * 34)
+    chart_width = max(620, len(columns) * 72)
+    chart_height = max(420, len(columns) * 46)
 
     base = alt.Chart(corr).encode(
         x=alt.X("feature_x:N", axis=AXIS_X_VERTICAL, title=None, sort=columns),
-        y=alt.Y("feature_y:N", axis=AXIS_X, title=None, sort=columns),
+        y=alt.Y("feature_y:N", axis=AXIS_Y_HEATMAP, title=None, sort=columns),
     )
 
     heatmap = base.mark_rect().encode(
-        color=alt.Color("corr:Q", scale=alt.Scale(scheme="redblue", domain=[-1, 1]), title="corr"),
+        color=alt.Color(
+            "corr:Q",
+            scale=alt.Scale(scheme="redblue", domain=[-0.35, 0.35], clamp=True),
+            title="corr",
+        ),
         tooltip=["feature_x:N", "feature_y:N", alt.Tooltip("corr:Q", format=".3f")],
     )
 

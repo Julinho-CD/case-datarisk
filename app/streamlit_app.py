@@ -40,32 +40,66 @@ def safe_render(label: str, render_fn, *args, **kwargs):
 
 
 def render_style(enabled: bool = False):
+    base_css = """
+    <style>
+    div[data-testid="stMetric"] {
+        background: linear-gradient(180deg, rgba(15,23,42,0.88), rgba(2,6,23,0.72));
+        border: 1px solid rgba(59,130,246,0.18);
+        border-radius: 16px;
+        padding: 0.45rem 0.7rem;
+    }
+    div[data-testid="stMetricValue"] {
+        font-size: 1.35rem;
+    }
+    div[data-testid="stAlert"] {
+        border: 1px solid rgba(148,163,184,0.35) !important;
+        border-radius: 16px;
+    }
+    div[data-testid="stExpander"] {
+        border: 1px solid rgba(56,189,248,0.18);
+        border-radius: 18px;
+        background: linear-gradient(180deg, rgba(15,23,42,0.86), rgba(2,6,23,0.72));
+        box-shadow: 0 16px 32px rgba(2,6,23,0.22);
+        overflow: hidden;
+    }
+    div[data-testid="stExpander"] details {
+        background: transparent;
+    }
+    div[data-testid="stExpander"] summary {
+        padding-top: 0.15rem;
+        padding-bottom: 0.15rem;
+    }
+    div[data-testid="stExpander"] summary p {
+        font-weight: 600;
+        letter-spacing: 0.01em;
+    }
+    div[data-testid="stExpander"] details[open] {
+        border-color: rgba(59,130,246,0.26);
+    }
+    div[data-testid="stExpander"] div[data-testid="stExpanderDetails"] {
+        padding-top: 0.2rem;
+    }
+    </style>
+    """
+
+    chrome_css = """
+    <style>
+    section[data-testid="stSidebar"] {
+        display: none !important;
+    }
+    button[kind="header"][aria-label="Open sidebar"] {
+        display: none !important;
+    }
+    button[kind="header"][aria-label="Close sidebar"] {
+        display: none !important;
+    }
+    </style>
+    """
+
     if not enabled:
         debug_log("custom chrome CSS disabled for debugging")
-        return
 
-    st.markdown(
-        """
-        <style>
-        section[data-testid="stSidebar"] {
-            display: none !important;
-        }
-        button[kind="header"][aria-label="Open sidebar"] {
-            display: none !important;
-        }
-        button[kind="header"][aria-label="Close sidebar"] {
-            display: none !important;
-        }
-        div[data-testid="stMetricValue"] {
-            font-size: 1.35rem;
-        }
-        div[data-testid="stAlert"] {
-            border: 1px solid rgba(148,163,184,0.35) !important;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
+    st.markdown(base_css + (chrome_css if enabled else ""), unsafe_allow_html=True)
 
 
 def main():
@@ -101,7 +135,7 @@ def main():
     st.caption(
         tr(
             "Original challenge solution + portfolio extension: executive summary, EDA, modeling, explainability, and prioritization.",
-            "Solução original do case + extensão de portfólio: resumo executivo, EDA, modelagem, explicabilidade e priorização.",
+            "Solução original do case + extensão de portfólio: resumo executivo, análise exploratória, modelagem, explicabilidade e priorização.",
         )
     )
 
@@ -201,7 +235,7 @@ def main():
 
     page_labels = {
         "executive": tr("Executive", "Executivo"),
-        "eda": tr("Data and Exploratory Data Analysis", "Dados e Análise Exploratória"),
+        "eda": tr("Data and exploratory analysis", "Dados e análise exploratória"),
         "modeling": tr("Modeling", "Modelagem"),
         "explainability": tr("Explainability", "Explicabilidade"),
         "prediction": tr("Prediction", "Predição"),

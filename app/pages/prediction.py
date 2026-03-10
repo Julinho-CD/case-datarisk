@@ -11,7 +11,7 @@ from src.config import BEST_MODEL_ARTIFACT_PATH, TARGET_COL
 
 
 def render_page(selected_row: dict | None, tr):
-    st.subheader(tr("Prediction And Prioritization", "Predição e priorização"))
+    st.subheader(tr("Prediction and prioritization", "Predição e priorização"))
     st.caption(
         tr(
             "Use this page to simulate operational queues by threshold and risk ranking.",
@@ -83,7 +83,7 @@ def render_page(selected_row: dict | None, tr):
 
     default_thr = float(selected_row.get("best_threshold", 0.5)) if selected_row else 0.5
     thr = st.slider(
-        tr("Active Prioritization Threshold", "Threshold ativo de priorização"),
+        tr("Active prioritization threshold", "Threshold ativo de priorização"),
         min_value=0.05,
         max_value=0.95,
         value=float(min(0.95, max(0.05, default_thr))),
@@ -97,22 +97,22 @@ def render_page(selected_row: dict | None, tr):
     p90 = float(pred_df[TARGET_COL].quantile(0.9))
 
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric(tr("Rows Scored", "Linhas pontuadas"), f"{n_rows:,}".replace(",", "."))
-    c2.metric(tr("Average Score", "Score médio"), f"{pred_df[TARGET_COL].mean():.4f}")
+    c1.metric(tr("Rows scored", "Linhas pontuadas"), f"{n_rows:,}".replace(",", "."))
+    c2.metric(tr("Average score", "Score médio"), f"{pred_df[TARGET_COL].mean():.4f}")
     c3.metric("P90", f"{p90:.4f}")
-    c4.metric(tr("% Above Threshold", "% acima do threshold"), f"{above_thr_pct:.2f}%")
+    c4.metric(tr("% above threshold", "% acima do threshold"), f"{above_thr_pct:.2f}%")
 
-    with st.expander(tr("Business Decision Policy", "Política de decisão de negócio")):
+    with st.expander(tr("Business decision policy", "Política de decisão de negócio")):
         st.markdown(
             tr(
-                "- Keep threshold close to the recommended value as default policy.\n"
-                "- Lower threshold when retention or risk prevention is priority.\n"
+                "- Keep threshold close to the recommended value as the default policy.\n"
+                "- Lower threshold when retention or risk prevention is the priority.\n"
                 "- Raise threshold when team capacity is constrained.\n"
                 "- Review queue size weekly against SLA and collection outcomes.",
-                "- Manter o threshold próximo ao recomendado como política padrão.\n"
-                "- Reduzir o threshold quando retenção ou prevenção de risco for prioridade.\n"
-                "- Aumentar o threshold quando a capacidade operacional estiver restrita.\n"
-                "- Revisar o tamanho da fila semanalmente conforme SLA e resultados de cobrança.",
+                "- Mantenha o threshold próximo ao recomendado como política padrão.\n"
+                "- Reduza o threshold quando retenção ou prevenção de risco for prioridade.\n"
+                "- Aumente o threshold quando a capacidade operacional estiver restrita.\n"
+                "- Revise o tamanho da fila semanalmente conforme o SLA e os resultados de cobrança.",
             )
         )
 
@@ -123,7 +123,7 @@ def render_page(selected_row: dict | None, tr):
         alt.Chart(hist_df)
         .mark_bar(color=PALETTE["blue"], cornerRadiusEnd=4)
         .encode(
-            y=alt.Y("label:N", sort=hist_df["label"].tolist(), axis=AXIS_X, title=tr("Score Range", "Faixa de score")),
+            y=alt.Y("label:N", sort=hist_df["label"].tolist(), axis=AXIS_X, title=tr("Score range", "Faixa de score")),
             x=alt.X("count:Q", title=tr("Count", "Quantidade")),
             tooltip=["label:N", "count:Q"],
         )
@@ -131,8 +131,8 @@ def render_page(selected_row: dict | None, tr):
         use_container_width=True,
     )
 
-    st.markdown(f"**{tr('Prioritization Table', 'Tabela de priorização')}**")
-    top_n = st.selectbox(tr("Top N Highest-Risk Cases", "Top N casos de maior risco"), [20, 50, 100, 200], index=0)
+    st.markdown(f"**{tr('Prioritization table', 'Tabela de priorização')}**")
+    top_n = st.selectbox(tr("Top N highest-risk cases", "Top N casos de maior risco"), [20, 50, 100, 200], index=0)
     prio_cols = [
         "ID_CLIENTE",
         "SAFRA_REF",
@@ -150,7 +150,7 @@ def render_page(selected_row: dict | None, tr):
 
     csv_bytes = top_df.to_csv(index=False).encode("utf-8")
     st.download_button(
-        label=tr("Download Top Prioritized Cases", "Baixar top casos priorizados"),
+        label=tr("Download top prioritized cases", "Baixar top casos priorizados"),
         data=csv_bytes,
         file_name="top_prioritized_cases.csv",
         mime="text/csv",

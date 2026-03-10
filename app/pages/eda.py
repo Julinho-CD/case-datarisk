@@ -9,7 +9,7 @@ from src.config import TARGET_COL
 
 
 def render_page(selected_row: dict | None, selected_run_id: str | None, tr):
-    st.subheader(tr("Data and EDA", "Dados e EDA"))
+    st.subheader(tr("Data and EDA", "Dados e análise exploratória"))
 
     data_source, refresh = current_data_settings()
     train, test = load_processed(data_source, refresh)
@@ -23,11 +23,18 @@ def render_page(selected_row: dict | None, selected_run_id: str | None, tr):
         )
         return
 
+    feature_columns = [c for c in train.columns if c != TARGET_COL]
+    numeric_features = [c for c in feature_columns if pd.api.types.is_numeric_dtype(train[c])]
+    categorical_features = [c for c in feature_columns if not pd.api.types.is_numeric_dtype(train[c])]
+    monthly_cohorts = 0
+    if "SAFRA_REF" in train.columns:
+        monthly_cohorts = train["SAFRA_REF"].dropna().dt.to_period("M").nunique()
+
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric(tr("Rows (train)", "Linhas (train)"), f"{train.shape[0]:,}".replace(",", "."))
-    c2.metric(tr("Rows (test)", "Linhas (test)"), f"{test.shape[0]:,}".replace(",", "."))
-    c3.metric(tr("Columns (train)", "Colunas (train)"), f"{train.shape[1]}")
-    c4.metric(tr("Delinquency Rate", "Taxa de Inadimplência"), f"{train[TARGET_COL].mean() * 100:.2f}%")
+    c1.metric(tr("Columns in the base", "Colunas da base"), f"{train.shape[1]}")
+    c2.metric(tr("Numeric features", "Features numéricas"), f"{len(numeric_features)}")
+    c3.metric(tr("Categorical features", "Features categóricas"), f"{len(categorical_features)}")
+    c4.metric(tr("Reference cohorts", "Safras analisadas"), f"{monthly_cohorts}")
 
     st.markdown(f"**{tr('Data quality', 'Qualidade dos dados')}**")
     miss = missing_report(train, 15).rename(
@@ -39,7 +46,7 @@ def render_page(selected_row: dict | None, selected_run_id: str | None, tr):
     )
     st.dataframe(miss, width="stretch")
 
-    st.markdown(f"**{tr('Target Distribution', 'Distribuição do target')}**")
+    st.markdown(f"**{tr('Target distribution', 'Distribuição do target')}**")
     vc = train[TARGET_COL].value_counts().rename_axis("target").reset_index(name="count")
     vc["class"] = vc["target"].map({0: tr("Current (0)", "Adimplente (0)"), 1: tr("Delinquent (1)", "Inadimplente (1)")})
     vc["pct"] = vc["count"] / vc["count"].sum()
@@ -61,7 +68,7 @@ def render_page(selected_row: dict | None, selected_run_id: str | None, tr):
         use_container_width=True,
     )
 
-    st.markdown(f"**{tr('Delinquency Over Time', 'Inadimplência ao longo do tempo')}**")
+    st.markdown(f"**{tr('Delinquency over time', 'Inadimplência ao longo do tempo')}**")
     tmp = train.dropna(subset=["SAFRA_REF"]).copy()
     tmp["REF_MONTH"] = tmp["SAFRA_REF"].dt.to_period("M").dt.to_timestamp()
     rate = tmp.groupby("REF_MONTH", as_index=False)[TARGET_COL].mean()
@@ -69,18 +76,18 @@ def render_page(selected_row: dict | None, selected_run_id: str | None, tr):
         alt.Chart(rate)
         .mark_line(color=PALETTE["blue"], strokeWidth=3, point=True)
         .encode(
-            x=alt.X("REF_MONTH:T", axis=AXIS_X, title=tr("Reference Month", "Mês de referência")),
-            y=alt.Y(f"{TARGET_COL}:Q", scale=alt.Scale(domain=[0, 1]), title=tr("Delinquency Rate", "Taxa de inadimplência")),
+            x=alt.X("REF_MONTH:T", axis=AXIS_X, title=tr("Reference month", "Mês de referência")),
+            y=alt.Y(f"{TARGET_COL}:Q", scale=alt.Scale(domain=[0, 1]), title=tr("Delinquency rate", "Taxa de inadimplência")),
         )
         .properties(height=260),
         use_container_width=True,
     )
 
-    st.markdown(f"**{tr('Correlation View', 'Visão de correlação')}**")
+    st.markdown(f"**{tr('Correlation view', 'Visão de correlação')}**")
     numeric_cols = [c for c in train_fe.columns if pd.api.types.is_numeric_dtype(train_fe[c]) and c not in {"ID_CLIENTE"}]
     default_corr = [c for c in [TARGET_COL, "VALOR_A_PAGAR", "TAXA", "QTDE_ATRASOS_ANT", "TICKET_MEDIO_ANT"] if c in numeric_cols]
     corr_features = st.multiselect(
-        tr("Features For Pearson Heatmap", "Features para heatmap de Pearson"),
+        tr("Features for the Pearson heatmap", "Features para o heatmap de Pearson"),
         options=numeric_cols,
         default=default_corr if len(default_corr) >= 3 else numeric_cols[:8],
     )
@@ -88,11 +95,11 @@ def render_page(selected_row: dict | None, selected_run_id: str | None, tr):
         corr_chart, _ = pearson_heatmap(train_fe, corr_features)
         st.altair_chart(corr_chart, use_container_width=True)
     else:
-        st.info(tr("Select At Least 2 Features.", "Selecione ao menos 2 features."))
+        st.info(tr("Select at least 2 features.", "Selecione ao menos 2 features."))
 
-    st.markdown(f"**{tr('Top Feature Behavior In EDA', 'Comportamento das top features na EDA')}**")
+    st.markdown(f"**{tr('Top-feature behavior in EDA', 'Comportamento das principais features na EDA')}**")
     top_feats = load_top_features(selected_row, selected_run_id)
-    story_n = st.radio(tr("How Many Features", "Quantas Features"), [3, 5], index=1, horizontal=True, key="eda_story_n")
+    story_n = st.radio(tr("How many features", "Quantas features"), [3, 5], index=1, horizontal=True, key="eda_story_n")
     stories = select_story_features(top_feats, train_fe, top_n=story_n)
 
     for story in stories:
@@ -100,7 +107,7 @@ def render_page(selected_row: dict | None, selected_run_id: str | None, tr):
         st.markdown(f"**{feat}**")
         if pd.api.types.is_numeric_dtype(train_fe[feat]):
             _, agg = build_numeric_story(train_fe, feat)
-            st.caption(tr("Risk Trend By Bucket For This Feature.", "Tendência de risco por faixa desta feature."))
+            st.caption(tr("Risk trend by bucket for this feature.", "Tendência de risco por faixa para esta feature."))
             if not agg.empty:
                 st.altair_chart(story_chart_numeric(agg, feat), use_container_width=True)
         else:
