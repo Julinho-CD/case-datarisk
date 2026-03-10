@@ -1,9 +1,9 @@
 import pandas as pd
 import streamlit as st
 
+from app import loaders
 from app.analysis import threshold_row
 from app.charts import chart_f1, chart_pr, chart_roc
-from app.loaders import load_run_pr_curve, load_run_roc_curve, load_run_threshold_curve
 
 
 def _model_option_label(row: pd.Series, tr) -> str:
@@ -125,9 +125,13 @@ def render_page(
         )
     )
 
-    threshold_curve = load_run_threshold_curve(active_run_id)
-    roc_curve_df = load_run_roc_curve(active_run_id)
-    pr_curve_df = load_run_pr_curve(active_run_id)
+    threshold_loader = getattr(loaders, "load_run_threshold_curve", loaders.load_threshold_curve)
+    roc_loader = getattr(loaders, "load_run_roc_curve", loaders.load_roc_curve)
+    pr_loader = getattr(loaders, "load_run_pr_curve", loaders.load_pr_curve)
+
+    threshold_curve = threshold_loader(active_run_id) if threshold_loader is not loaders.load_threshold_curve else threshold_loader()
+    roc_curve_df = roc_loader(active_run_id) if roc_loader is not loaders.load_roc_curve else roc_loader()
+    pr_curve_df = pr_loader(active_run_id) if pr_loader is not loaders.load_pr_curve else pr_loader()
     if threshold_curve is None or threshold_curve.empty:
         st.info(
             tr(

@@ -5,22 +5,25 @@ from pathlib import Path
 import joblib
 import pandas as pd
 import streamlit as st
-
-from src.config import (
-    BEST_MODEL_ARTIFACT_PATH,
-    BEST_RUN_ARTIFACT_PATH,
-    FEATURE_IMPORTANCE_CSV_ARTIFACT_PATH,
-    FEATURE_IMPORTANCE_PNG_ARTIFACT_PATH,
-    MODEL_COMPARISON_ARTIFACT_PATH,
-    PR_CURVE_ARTIFACT_PATH,
-    PROJECT_ROOT,
-    ROC_CURVE_ARTIFACT_PATH,
-    SHAP_SUMMARY_PNG_ARTIFACT_PATH,
-    THRESHOLD_CURVE_ARTIFACT_PATH,
-    VAL_PREDICTIONS_BEST_ARTIFACT_PATH,
-)
+from src import config as cfg
 from src.data_access import default_refresh_flag, load_processed_datasets, resolve_data_source
 from src.features import build_features
+
+PROJECT_ROOT = cfg.PROJECT_ROOT
+ARTIFACTS_DIR = cfg.ARTIFACTS_DIR
+ARTIFACTS_RUNS_DIR = getattr(cfg, "ARTIFACTS_RUNS_DIR", ARTIFACTS_DIR / "runs")
+BEST_MODEL_ARTIFACT_PATH = cfg.BEST_MODEL_ARTIFACT_PATH
+BEST_RUN_ARTIFACT_PATH = cfg.BEST_RUN_ARTIFACT_PATH
+FEATURE_IMPORTANCE_CSV_ARTIFACT_PATH = cfg.FEATURE_IMPORTANCE_CSV_ARTIFACT_PATH
+FEATURE_IMPORTANCE_PNG_ARTIFACT_PATH = cfg.FEATURE_IMPORTANCE_PNG_ARTIFACT_PATH
+FIG_RUNS_DIR = getattr(cfg, "FIG_RUNS_DIR", (cfg.REPORTS_DIR / "figures" / "runs"))
+MODEL_COMPARISON_ARTIFACT_PATH = cfg.MODEL_COMPARISON_ARTIFACT_PATH
+METRICS_RUNS_DIR = getattr(cfg, "METRICS_RUNS_DIR", (cfg.REPORTS_DIR / "metrics" / "runs"))
+PR_CURVE_ARTIFACT_PATH = cfg.PR_CURVE_ARTIFACT_PATH
+ROC_CURVE_ARTIFACT_PATH = cfg.ROC_CURVE_ARTIFACT_PATH
+SHAP_SUMMARY_PNG_ARTIFACT_PATH = cfg.SHAP_SUMMARY_PNG_ARTIFACT_PATH
+THRESHOLD_CURVE_ARTIFACT_PATH = cfg.THRESHOLD_CURVE_ARTIFACT_PATH
+VAL_PREDICTIONS_BEST_ARTIFACT_PATH = cfg.VAL_PREDICTIONS_BEST_ARTIFACT_PATH
 
 
 def safe_read_json(path: Path, default=None):
@@ -84,6 +87,14 @@ def load_model_comparison():
         "cv_roc_auc_mean",
         "cv_pr_auc_mean",
         "use_smote",
+        "split_test_size",
+        "n_total_labeled",
+        "n_train",
+        "n_test",
+        "train_share",
+        "test_share",
+        "train_positive_rate",
+        "test_positive_rate",
     ]
     for column in numeric_cols:
         if column in df.columns:
@@ -126,6 +137,85 @@ def load_pr_curve():
     return _read_csv_artifact(PR_CURVE_ARTIFACT_PATH, required_cols={"precision", "recall"})
 
 
+def _run_metrics_path(run_id: str) -> Path:
+    public_path = ARTIFACTS_RUNS_DIR / run_id / "val_predictions.csv"
+    return public_path if public_path.exists() else (METRICS_RUNS_DIR / f"val_predictions_{run_id}.csv")
+
+
+def _run_figures_dir(run_id: str) -> Path:
+    public_path = ARTIFACTS_RUNS_DIR / run_id
+    return public_path if public_path.exists() else (FIG_RUNS_DIR / run_id)
+
+
+@st.cache_data
+def load_run_val_predictions(run_id: str | None):
+    if not run_id:
+        return None
+    return _read_csv_artifact(_run_metrics_path(run_id), required_cols={"y_true", "y_prob"})
+
+
+@st.cache_data
+def load_run_threshold_curve(run_id: str | None):
+    val_df = load_run_val_predictions(run_id)
+    if val_df is None or val_df.empty:
+        return None
+
+    y_true = val_df["y_true"].astype(int).to_numpy()
+    y_prob = val_df["y_prob"].astype(float).to_numpy()
+    rows = []
+    for thr in [x / 1000 for x in range(50, 951, 5)]:
+        y_pred = (y_prob >= thr).astype(int)
+        tp = int(((y_true == 1) & (y_pred == 1)).sum())
+        tn = int(((y_true == 0) & (y_pred == 0)).sum())
+        fp = int(((y_true == 0) & (y_pred == 1)).sum())
+        fn = int(((y_true == 1) & (y_pred == 0)).sum())
+        precision = tp / (tp + fp) if (tp + fp) else 0.0
+        recall = tp / (tp + fn) if (tp + fn) else 0.0
+        f1 = (2 * precision * recall / (precision + recall)) if (precision + recall) else 0.0
+        rows.append(
+            {
+                "threshold": float(thr),
+                "tp": tp,
+                "tn": tn,
+                "fp": fp,
+                "fn": fn,
+                "precision": float(precision),
+                "recall": float(recall),
+                "f1": float(f1),
+                "fpr": float(fp / (fp + tn) if (fp + tn) else 0.0),
+                "positive_rate": float((y_pred == 1).mean()),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+@st.cache_data
+def load_run_roc_curve(run_id: str | None):
+    val_df = load_run_val_predictions(run_id)
+    if val_df is None or val_df.empty:
+        return None
+    from sklearn.metrics import roc_curve
+
+    y_true = val_df["y_true"].astype(int).to_numpy()
+    y_prob = val_df["y_prob"].astype(float).to_numpy()
+    fpr, tpr, thresholds = roc_curve(y_true, y_prob)
+    return pd.DataFrame({"fpr": fpr, "tpr": tpr, "threshold": thresholds})
+
+
+@st.cache_data
+def load_run_pr_curve(run_id: str | None):
+    val_df = load_run_val_predictions(run_id)
+    if val_df is None or val_df.empty:
+        return None
+    from sklearn.metrics import precision_recall_curve
+
+    y_true = val_df["y_true"].astype(int).to_numpy()
+    y_prob = val_df["y_prob"].astype(float).to_numpy()
+    precision, recall, thresholds = precision_recall_curve(y_true, y_prob)
+    padded_thresholds = list(thresholds) + [float("nan")]
+    return pd.DataFrame({"precision": precision, "recall": recall, "threshold": padded_thresholds})
+
+
 @st.cache_data
 def load_feature_importance():
     df = _read_csv_artifact(FEATURE_IMPORTANCE_CSV_ARTIFACT_PATH, required_cols={"feature", "importance"})
@@ -138,8 +228,33 @@ def load_feature_importance():
     return df.dropna(subset=["feature", "importance"]).reset_index(drop=True)
 
 
+@st.cache_data
+def load_run_feature_importance(run_id: str | None):
+    if not run_id:
+        return load_feature_importance()
+
+    run_dir = _run_figures_dir(run_id)
+    csv_path = run_dir / "feature_importance.csv"
+    if csv_path.exists():
+        df = _read_csv_artifact(csv_path, required_cols={"feature", "importance"})
+    else:
+        json_path = run_dir / "top_features.json"
+        if not json_path.exists():
+            return load_feature_importance()
+        df = pd.DataFrame(json.loads(json_path.read_text(encoding="utf-8")))
+
+    if df is None or df.empty:
+        return None
+    df = df.copy()
+    df["importance"] = pd.to_numeric(df["importance"], errors="coerce")
+    df = df.dropna(subset=["feature", "importance"]).sort_values("importance", ascending=False).reset_index(drop=True)
+    if "rank" not in df.columns:
+        df.insert(0, "rank", range(1, len(df) + 1))
+    return df
+
+
 def load_top_features(_selected_row: dict | None = None, _run_id: str | None = None):
-    df = load_feature_importance()
+    df = load_run_feature_importance(_run_id)
     if df is None or df.empty:
         return []
     return df[["feature", "importance"]].to_dict(orient="records")

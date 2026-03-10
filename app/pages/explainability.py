@@ -2,9 +2,9 @@ import altair as alt
 import pandas as pd
 import streamlit as st
 
+from app import loaders
 from app.analysis import build_categorical_story, build_numeric_story, select_story_features
 from app.charts import PALETTE, story_chart_categorical, story_chart_numeric
-from app.loaders import current_data_settings, load_feature_data, load_run_feature_importance, load_top_features
 
 
 def _model_option_label(row: pd.Series, tr) -> str:
@@ -59,7 +59,8 @@ def render_page(comparison: pd.DataFrame | None, selected_row: dict | None, tr):
 
     active_row = _select_model_row(comparison, selected_row, tr)
     active_run_id = str(active_row.get("run_id", "")).strip()
-    imp_df = load_run_feature_importance(active_run_id)
+    imp_loader = getattr(loaders, "load_run_feature_importance", loaders.load_feature_importance)
+    imp_df = imp_loader(active_run_id) if imp_loader is not loaders.load_feature_importance else imp_loader()
     if imp_df is None or imp_df.empty:
         st.info(
             tr(
@@ -101,8 +102,8 @@ def render_page(comparison: pd.DataFrame | None, selected_row: dict | None, tr):
             )
         )
 
-    data_source, refresh = current_data_settings()
-    train_fe, _ = load_feature_data(data_source, refresh)
+    data_source, refresh = loaders.current_data_settings()
+    train_fe, _ = loaders.load_feature_data(data_source, refresh)
     if train_fe is None:
         st.info(
             tr(
@@ -113,7 +114,7 @@ def render_page(comparison: pd.DataFrame | None, selected_row: dict | None, tr):
         return
 
     st.markdown(f"**{tr('Top feature stories', 'Histórias das principais features')}**")
-    top_feats = load_top_features(active_row, active_run_id)
+    top_feats = loaders.load_top_features(active_row, active_run_id)
     story_n = st.radio(tr("How many features", "Quantas features"), [3, 5], index=1, horizontal=True, key="exp_story_n")
     stories = select_story_features(top_feats, train_fe, top_n=story_n)
 
