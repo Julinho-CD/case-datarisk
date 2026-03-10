@@ -32,7 +32,6 @@ def _select_model_row(comparison: pd.DataFrame, selected_row: dict | None, tr) -
     current_run_id = st.session_state.get("analysis_run_id", default_run_id)
     if current_run_id not in run_ids:
         current_run_id = default_run_id
-        st.session_state["analysis_run_id"] = default_run_id
 
     selected_run_id = st.selectbox(
         tr("Model for analysis", "Modelo para análise"),
@@ -41,8 +40,6 @@ def _select_model_row(comparison: pd.DataFrame, selected_row: dict | None, tr) -
         format_func=lambda run_id: label_map.get(run_id, run_id),
         key="analysis_run_id",
     )
-    st.session_state["analysis_run_id"] = selected_run_id
-
     return comparison.loc[comparison["run_id"].astype(str) == str(selected_run_id)].iloc[0].to_dict()
 
 

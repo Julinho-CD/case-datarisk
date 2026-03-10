@@ -57,7 +57,17 @@ def render_page(selected_row: dict | None, tr):
             message="Found unknown categories in columns .* encoded as all zeros",
             category=UserWarning,
         )
-        test_prob = model.predict_proba(X_test)[:, 1]
+        try:
+            test_prob = model.predict_proba(X_test)[:, 1]
+        except Exception as exc:
+            st.warning(
+                tr(
+                    "The published model could not score the processed test base. This usually means the committed model artifact is out of sync with the feature pipeline. Re-export `artifacts/best_model.joblib` from the latest training run and redeploy the app.",
+                    "O modelo publicado nÃ£o conseguiu pontuar a base processada de teste. Isso normalmente indica que o artefato versionado do modelo ficou fora de sincronia com o pipeline de features. Reexporte `artifacts/best_model.joblib` a partir do treino mais recente e publique o app novamente.",
+                )
+            )
+            st.exception(exc)
+            return
 
     base_pred_cols = [
         c
